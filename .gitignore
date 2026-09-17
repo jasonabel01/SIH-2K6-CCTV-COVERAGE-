@@ -1,0 +1,29 @@
+# Python Virtual Environment & Cache
+backend/.venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node & Frontend Build
+frontend/node_modules/
+node_modules/
+frontend/dist/
+dist/
+.vite/
+
+# Temporary frame extracts & test caches
+scratch_frame_*.jpg
+center_car_10s.jpg
+found_plate.jpg
+
+# OS & IDE
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Environment Variables
+.env
+.env.local
