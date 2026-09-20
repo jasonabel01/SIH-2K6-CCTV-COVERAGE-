@@ -237,10 +237,45 @@ function buildRealisticCarMesh({ bodyColor = 0x1E222B, plateNumber = 'HR 26 DQ 5
   badgeSprite.scale.set(9.5, 2.2, 1);
   carGroup.add(badgeSprite);
 
-  return { carGroup, wheels };
+  return { 
+    carGroup, 
+    wheels, 
+    frontPlate, 
+    rearPlate, 
+    badgeSprite,
+    updatePlate: (newPlate) => {
+      const newTexture = createHSRPPlateTexture(newPlate);
+      frontPlate.material.map = newTexture;
+      frontPlate.material.needsUpdate = true;
+      rearPlate.material.map = newTexture;
+      rearPlate.material.needsUpdate = true;
+
+      // Update HUD badge
+      const bCanvas = document.createElement('canvas');
+      bCanvas.width = 320;
+      bCanvas.height = 72;
+      const ctx = bCanvas.getContext('2d');
+      ctx.fillStyle = isClone ? '#EF4444' : '#10B981';
+      ctx.fillRect(0, 0, 320, 72);
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, 316, 68);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 24px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(isClone ? `[CLONE] ${newPlate}` : `[TARGET] ${newPlate}`, 160, 36);
+      badgeSprite.material.map = new THREE.CanvasTexture(bCanvas);
+      badgeSprite.material.needsUpdate = true;
+    }
+  };
 }
 
-export default function Route3DSimulator({ activePlate = 'HR 26 DQ 5521' }) {
+export default function Route3DSimulator({ 
+  activePlate = 'HR 26 DQ 5521',
+  isAnomalyActive = false,
+  onToggleAnomaly 
+}) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
@@ -250,10 +285,18 @@ export default function Route3DSimulator({ activePlate = 'HR 26 DQ 5521' }) {
   // References to vehicles and animated elements
   const vehicleARef = useRef(null);
   const vehicleBRef = useRef(null);
+  const vehicleAObjRef = useRef(null);
+  const vehicleBObjRef = useRef(null);
   const wheelsARef = useRef([]);
   const wheelsBRef = useRef([]);
-  const threatArcRef = useRef(null);
+  
+  // Tactical Red Light Ray Elements
+  const threatRayGroupRef = useRef(null);
+  const threatCoreBeamRef = useRef(null);
+  const threatDashedRayRef = useRef(null);
+  const threatApexLightRef = useRef(null);
   const threatBadgeRef = useRef(null);
+  
   const gantryStrobesRef = useRef([]);
   const cursorRingRef = useRef(null);
 
@@ -267,11 +310,41 @@ export default function Route3DSimulator({ activePlate = 'HR 26 DQ 5521' }) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [simSpeed, setSimSpeed] = useState(1.0);
   const [activeCamIndex, setActiveCamIndex] = useState(0);
-  const [clonedAlertActive, setClonedAlertActive] = useState(true);
+
+  // Strict Default: Hidden by default! Only shows when user clicks "TRIGGER CLONED ANOMALY"
+  const [clonedAlertActive, setClonedAlertActive] = useState(isAnomalyActive || false);
+  const clonedAlertRef = useRef(isAnomalyActive || false);
   const [cameraView, setCameraView] = useState('free'); // 'free' | 'chaseA' | 'chaseB' | 'gantry' | 'overhead'
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [cursorCoords, setCursorCoords] = useState({ x: 0, z: 0 });
   const [hoveredObject, setHoveredObject] = useState(null);
+
+  // Synchronize with isAnomalyActive prop if controlled from parent
+  useEffect(() => {
+    if (isAnomalyActive !== undefined) {
+      setClonedAlertActive(isAnomalyActive);
+      clonedAlertRef.current = isAnomalyActive;
+      if (vehicleBRef.current) vehicleBRef.current.visible = isAnomalyActive;
+      if (threatRayGroupRef.current) threatRayGroupRef.current.visible = isAnomalyActive;
+    }
+  }, [isAnomalyActive]);
+
+  // Synchronize clonedAlertRef with state and 3D object visibility
+  useEffect(() => {
+    clonedAlertRef.current = clonedAlertActive;
+    if (vehicleBRef.current) vehicleBRef.current.visible = clonedAlertActive;
+    if (threatRayGroupRef.current) threatRayGroupRef.current.visible = clonedAlertActive;
+  }, [clonedAlertActive]);
+
+  // Synchronize plates on vehicles when activePlate changes
+  useEffect(() => {
+    if (vehicleAObjRef.current?.updatePlate) {
+      vehicleAObjRef.current.updatePlate(activePlate);
+    }
+    if (vehicleBObjRef.current?.updatePlate) {
+      vehicleBObjRef.current.updatePlate(activePlate);
+    }
+  }, [activePlate]);
 
   // 4 Delhi NCR Highway Gantries
   const checkpoints = [
@@ -505,65 +578,92 @@ export default function Route3DSimulator({ activePlate = 'HR 26 DQ 5521' }) {
     gantryStrobesRef.current = strobes;
 
     // 9. Build Realistic Target Vehicle A
-    const { carGroup: carA, wheels: wheelsA } = buildRealisticCarMesh({
+    const carAObj = buildRealisticCarMesh({
       bodyColor: 0x1E222B, // Dark Gunmetal SUV
       plateNumber: activePlate,
       isClone: false
     });
+    const carA = carAObj.carGroup;
     vehicleARef.current = carA;
-    wheelsARef.current = wheelsA;
+    vehicleAObjRef.current = carAObj;
+    wheelsARef.current = carAObj.wheels;
     scene.add(carA);
 
     // 10. Build Real Cloned Vehicle B (Simultaneously driving with IDENTICAL plate!)
-    const { carGroup: carB, wheels: wheelsB } = buildRealisticCarMesh({
+    const carBObj = buildRealisticCarMesh({
       bodyColor: 0xE2E8F0, // Pearl Silver Sedan
       plateNumber: activePlate,
       isClone: true
     });
+    const carB = carBObj.carGroup;
+    carB.visible = false; // Strictly hidden by default until triggered!
     vehicleBRef.current = carB;
-    wheelsBRef.current = wheelsB;
+    vehicleBObjRef.current = carBObj;
+    wheelsBRef.current = carBObj.wheels;
     scene.add(carB);
 
-    // 11. Tactical Threat Arc (Connects Vehicle A and Cloned Vehicle B)
+    // 11. Tactical Threat Red Light Ray System (Connects Vehicle A and Cloned Vehicle B)
+    const threatRayGroup = new THREE.Group();
+    threatRayGroup.visible = false; // Strictly hidden by default until triggered!
+    threatRayGroupRef.current = threatRayGroup;
+    scene.add(threatRayGroup);
+
+    // 11a. Core High-Intensity Red Laser Beam Line
     const arcGeo = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(0, 0, 0),
       new THREE.Vector3(0, 20, 0),
       new THREE.Vector3(0, 0, 0)
     ]);
-    const arcMat = new THREE.LineDashedMaterial({
+    const coreBeamMat = new THREE.LineBasicMaterial({
+      color: 0xFF2222,
+      linewidth: 3
+    });
+    const coreBeam = new THREE.Line(arcGeo, coreBeamMat);
+    threatRayGroup.add(coreBeam);
+    threatCoreBeamRef.current = coreBeam;
+
+    // 11b. Dynamic Dashed Threat Vector Arc
+    const dashedRayMat = new THREE.LineDashedMaterial({
       color: 0xEF4444,
       dashSize: 3,
       gapSize: 1.5,
       linewidth: 3
     });
-    const threatArc = new THREE.Line(arcGeo, arcMat);
-    threatArc.computeLineDistances();
-    threatArcRef.current = threatArc;
-    scene.add(threatArc);
+    const dashedRay = new THREE.Line(arcGeo.clone(), dashedRayMat);
+    dashedRay.computeLineDistances();
+    threatRayGroup.add(dashedRay);
+    threatDashedRayRef.current = dashedRay;
 
-    // Floating Threat Banner on Arc
+    // 11c. Dynamic Crimson Apex Light (casts pulsating red alert glow onto the highway corridor)
+    const threatApexLight = new THREE.PointLight(0xEF4444, 4.0, 70, 1.2);
+    threatApexLight.position.set(0, 20, 0);
+    threatRayGroup.add(threatApexLight);
+    threatApexLightRef.current = threatApexLight;
+
+    // 11d. Floating Threat Banner on Arc Apex
     const tBadgeCanvas = document.createElement('canvas');
-    tBadgeCanvas.width = 440;
-    tBadgeCanvas.height = 80;
+    tBadgeCanvas.width = 460;
+    tBadgeCanvas.height = 84;
     const tbCtx = tBadgeCanvas.getContext('2d');
     tbCtx.fillStyle = '#EF4444';
-    tbCtx.fillRect(0, 0, 440, 80);
+    tbCtx.fillRect(0, 0, 460, 84);
     tbCtx.strokeStyle = '#FFFFFF';
     tbCtx.lineWidth = 4;
-    tbCtx.strokeRect(2, 2, 436, 76);
+    tbCtx.strokeRect(2, 2, 456, 80);
     tbCtx.fillStyle = '#FFFFFF';
     tbCtx.font = 'bold 22px monospace';
     tbCtx.textAlign = 'center';
-    tbCtx.fillText('DEFCON 1: CLONED REGISTRATION', 220, 32);
-    tbCtx.font = '16px monospace';
-    tbCtx.fillText('24.6 KM APART | V > 2,000 KM/H (IMPOSSIBLE)', 220, 60);
+    tbCtx.fillText('DEFCON 1: CLONED REGISTRATION', 230, 32);
+    tbCtx.font = '15px monospace';
+    tbCtx.fillText('24.6 KM APART | V > 2,000 KM/H (IMPOSSIBLE)', 230, 62);
 
     const threatBadge = new THREE.Sprite(
       new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(tBadgeCanvas) })
     );
-    threatBadge.scale.set(15, 2.8, 1);
+    threatBadge.scale.set(16, 3.0, 1);
+    threatBadge.position.set(0, 24, 0);
+    threatRayGroup.add(threatBadge);
     threatBadgeRef.current = threatBadge;
-    scene.add(threatBadge);
 
     // 12. Movable 3D Tactical Cursor Ring (Follows mouse in real-time)
     const cursorGeo = new THREE.RingGeometry(3.0, 3.4, 32);
@@ -642,40 +742,61 @@ export default function Route3DSimulator({ activePlate = 'HR 26 DQ 5521' }) {
         });
       }
 
-      // Update Cloned Vehicle B along Curve B (Offset position)
-      if (curveBRef.current && vehicleBRef.current) {
-        const uB = Math.max(0.001, Math.min(0.999, (progressRef.current + 0.35) % 1.0));
-        const posB = curveBRef.current.getPoint(uB);
-        const tanB = curveBRef.current.getTangent(uB);
+      // Update Cloned Vehicle B and Tactical Red Light Ray ONLY if cloned alert is ACTIVE
+      const isAlert = clonedAlertRef.current;
+      if (vehicleBRef.current) vehicleBRef.current.visible = isAlert;
+      if (threatRayGroupRef.current) threatRayGroupRef.current.visible = isAlert;
 
-        vehicleBRef.current.position.copy(posB);
-        vehicleBRef.current.lookAt(posB.clone().add(tanB));
+      if (isAlert) {
+        // Update Cloned Vehicle B along Curve B (Offset position)
+        if (curveBRef.current && vehicleBRef.current) {
+          const uB = Math.max(0.001, Math.min(0.999, (progressRef.current + 0.35) % 1.0));
+          const posB = curveBRef.current.getPoint(uB);
+          const tanB = curveBRef.current.getTangent(uB);
 
-        wheelsBRef.current.forEach(w => {
-          w.rotation.x += delta * 18.0;
-        });
-      }
+          vehicleBRef.current.position.copy(posB);
+          vehicleBRef.current.lookAt(posB.clone().add(tanB));
 
-      // Update Threat Vector Arc between Vehicle A and Vehicle B
-      if (threatArcRef.current && vehicleARef.current && vehicleBRef.current) {
-        const pA = vehicleARef.current.position;
-        const pB = vehicleBRef.current.position;
-
-        const arcPoints = [];
-        for (let i = 0; i <= 30; i++) {
-          const t = i / 30;
-          const x = pA.x + (pB.x - pA.x) * t;
-          const z = pA.z + (pB.z - pA.z) * t;
-          const y = Math.sin(t * Math.PI) * 28 + Math.max(pA.y, pB.y);
-          arcPoints.push(new THREE.Vector3(x, y, z));
+          wheelsBRef.current.forEach(w => {
+            w.rotation.x += delta * 18.0;
+          });
         }
-        threatArcRef.current.geometry.setFromPoints(arcPoints);
-        threatArcRef.current.computeLineDistances();
 
-        // Center threat banner over the apex of the arc
-        if (threatBadgeRef.current) {
+        // Update Red Light Ray Vector Arc between Vehicle A and Vehicle B
+        if (vehicleARef.current && vehicleBRef.current) {
+          const pA = vehicleARef.current.position;
+          const pB = vehicleBRef.current.position;
+
+          const arcPoints = [];
+          for (let i = 0; i <= 30; i++) {
+            const t = i / 30;
+            const x = pA.x + (pB.x - pA.x) * t;
+            const z = pA.z + (pB.z - pA.z) * t;
+            const y = Math.sin(t * Math.PI) * 28 + Math.max(pA.y, pB.y);
+            arcPoints.push(new THREE.Vector3(x, y, z));
+          }
+
+          if (threatCoreBeamRef.current) {
+            threatCoreBeamRef.current.geometry.setFromPoints(arcPoints);
+          }
+          if (threatDashedRayRef.current) {
+            threatDashedRayRef.current.geometry.setFromPoints(arcPoints);
+            threatDashedRayRef.current.computeLineDistances();
+          }
+
+          // Apex midpoint of the parabolic ray
           const midPt = arcPoints[15];
-          threatBadgeRef.current.position.set(midPt.x, midPt.y + 4.5, midPt.z);
+
+          // Center threat banner over the apex of the arc
+          if (threatBadgeRef.current) {
+            threatBadgeRef.current.position.set(midPt.x, midPt.y + 4.5, midPt.z);
+          }
+
+          // Crimson apex alert strobe light illuminating the highway corridor
+          if (threatApexLightRef.current) {
+            threatApexLightRef.current.position.set(midPt.x, midPt.y + 1.0, midPt.z);
+            threatApexLightRef.current.intensity = 4.0 + Math.sin(elapsed * 8.0) * 2.5;
+          }
         }
       }
 
@@ -828,8 +949,15 @@ export default function Route3DSimulator({ activePlate = 'HR 26 DQ 5521' }) {
           {/* Trigger Cloned Anomaly */}
           <button
             onClick={() => {
-              setClonedAlertActive(!clonedAlertActive);
-              playTacticalAlarmSound();
+              const nextVal = !clonedAlertActive;
+              setClonedAlertActive(nextVal);
+              clonedAlertRef.current = nextVal;
+              if (vehicleBRef.current) vehicleBRef.current.visible = nextVal;
+              if (threatRayGroupRef.current) threatRayGroupRef.current.visible = nextVal;
+              if (onToggleAnomaly) onToggleAnomaly(nextVal);
+              if (nextVal) {
+                playTacticalAlarmSound();
+              }
             }}
             className={`px-3 py-1.5 font-bold text-xs rounded-none border transition-all cursor-pointer flex items-center gap-1.5 ${
               clonedAlertActive
@@ -863,7 +991,13 @@ export default function Route3DSimulator({ activePlate = 'HR 26 DQ 5521' }) {
             </div>
           </div>
           <button
-            onClick={() => setClonedAlertActive(false)}
+            onClick={() => {
+              setClonedAlertActive(false);
+              clonedAlertRef.current = false;
+              if (vehicleBRef.current) vehicleBRef.current.visible = false;
+              if (threatRayGroupRef.current) threatRayGroupRef.current.visible = false;
+              if (onToggleAnomaly) onToggleAnomaly(false);
+            }}
             className="px-3 py-1.5 bg-[#1C1F26] hover:bg-[#252A34] text-[#FFFFFF] border border-[#EF4444] text-xs font-bold shrink-0 cursor-pointer"
           >
             DISMISS

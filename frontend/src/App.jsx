@@ -480,7 +480,11 @@ export default function App() {
               )}
 
               {centerView === 'route_sim' && (
-                <Route3DSimulator activePlate={trackedPlate} />
+                <Route3DSimulator 
+                  activePlate={trackedPlate} 
+                  isAnomalyActive={isAnomalyActive}
+                  onToggleAnomaly={(val) => setIsAnomalyActive(val !== undefined ? val : !isAnomalyActive)}
+                />
               )}
             </div>
           </div>
