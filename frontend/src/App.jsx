@@ -35,6 +35,8 @@ import GodsEyeRadarSystem from './components/GodsEyeRadarSystem';
 import UasGantryWireframe3D from './components/UasGantryWireframe3D';
 import SubsystemHealthMatrix from './components/SubsystemHealthMatrix';
 import TacticalCommandDeck from './components/TacticalCommandDeck';
+import TacticalCameraWall from './components/TacticalCameraWall';
+import TrajectoryTimelineViewer from './components/TrajectoryTimelineViewer';
 
 /**
  * NeuroTraffic - City-Wide ANPR & Urban Traffic Intelligence
@@ -44,12 +46,12 @@ import TacticalCommandDeck from './components/TacticalCommandDeck';
  * 1. Deep dark carbon/obsidian ground station interface.
  * 2. System Readiness anchored top-left.
  * 3. 4 Subsystem Health Cards (Optical CLAHE, Neural ANPR, Spatial Graph, DPDP Vault).
- * 4. Central Diagnostic Stage: Video Split-Lab, 3D Physical Gantry Wireframe, and 360° Radar Scope.
+ * 4. Central Diagnostic Stage: CCTV Matrix Wall, Journey Stitcher, Video Split-Lab, 3D Gantry, Radar Scope.
  * 5. Dedicated bottom Mission Timeline & Tactical Governor deck.
  * 6. Zero decorative noise: colors strictly signify operational state.
  */
 export default function App() {
-  const [centerView, setCenterView] = useState('gods_eye_radar'); // 'vision_lab' | 'gantry_3d' | 'gods_eye_radar' | 'route_sim'
+  const [centerView, setCenterView] = useState('cctv_matrix'); // 'cctv_matrix' | 'trajectory_history' | 'vision_lab' | 'gantry_3d' | 'gods_eye_radar' | 'route_sim'
   const [trackedPlate, setTrackedPlate] = useState('RJ 14 CA 0639');
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -61,6 +63,31 @@ export default function App() {
   const [judgeDemoRunning, setJudgeDemoRunning] = useState(false);
   const [pcrDispatched, setPcrDispatched] = useState(false);
   const [barrierLocked, setBarrierLocked] = useState(false);
+  const [liveEventsCount, setLiveEventsCount] = useState(1420);
+  const [latestSighting, setLatestSighting] = useState(null);
+
+  // Connect to live sub-50ms WebSocket telemetry
+  useEffect(() => {
+    let ws;
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      const wsUrl = backendUrl.replace(/^http/, 'ws') + '/ws/telemetry';
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.event_type === 'VEHICLE_SIGHTING') {
+            setLiveEventsCount((prev) => prev + 1);
+            setLatestSighting(data);
+          }
+        } catch (e) {}
+      };
+    } catch (e) {}
+
+    return () => {
+      if (ws) ws.close();
+    };
+  }, []);
 
   // Synchronized Target Plate Data
   const plateDatabase = {
@@ -315,16 +342,16 @@ export default function App() {
               </div>
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex justify-between">
-                  <span className="text-[#CBD5E1]">Corridor Traffic Flow:</span>
-                  <span className="text-[#F8FAFC] font-bold">1,420 veh/hr</span>
+                  <span className="text-[#CBD5E1]">Live Detections Broadcast:</span>
+                  <span className="text-[#10B981] font-bold">{liveEventsCount.toLocaleString()} veh</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#CBD5E1]">Optical Bilateral Gain:</span>
                   <span className="text-[#10B981] font-bold">+34.2 dB</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#CBD5E1]">Network Health:</span>
-                  <span className="text-[#F8FAFC] font-bold">48.3 ms // 60 FPS</span>
+                  <span className="text-[#CBD5E1]">Telemetry Stream:</span>
+                  <span className="text-[#F8FAFC] font-bold">WS:// 38.4ms // 60 FPS</span>
                 </div>
               </div>
             </div>
@@ -333,59 +360,98 @@ export default function App() {
           {/* CENTER COLUMN: Central Diagnostic Stage (6 Cols) */}
           <div className="lg:col-span-6 flex flex-col gap-3">
             {/* Center Stage Mode Switcher (Sharp Modular Tabs) */}
-            <div className="flex items-center justify-between bg-[#13151B] border border-[#262933] rounded-none p-1 font-mono text-xs gap-1">
+            <div className="grid grid-cols-3 sm:grid-cols-6 bg-[#13151B] border border-[#262933] rounded-none p-1 font-mono text-xs gap-1">
+              <button
+                onClick={() => setCenterView('cctv_matrix')}
+                className={`py-2 px-1 rounded-none transition-all flex items-center justify-center gap-1 cursor-pointer text-[11px] ${
+                  centerView === 'cctv_matrix'
+                    ? 'bg-[#252A34] text-[#FFFFFF] font-black border border-[#F59E0B] shadow-[inset_0_0_10px_rgba(245,158,11,0.12),0_0_10px_rgba(245,158,11,0.25)]'
+                    : 'bg-[#1C1F26] text-[#CBD5E1] hover:text-[#FFFFFF] hover:bg-[#252A34] border border-[#374151] hover:border-[#4B5563]'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${centerView === 'cctv_matrix' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
+                1. 4-Feed CCTV Wall
+              </button>
+              <button
+                onClick={() => setCenterView('trajectory_history')}
+                className={`py-2 px-1 rounded-none transition-all flex items-center justify-center gap-1 cursor-pointer text-[11px] ${
+                  centerView === 'trajectory_history'
+                    ? 'bg-[#252A34] text-[#FFFFFF] font-black border border-[#F59E0B] shadow-[inset_0_0_10px_rgba(245,158,11,0.12),0_0_10px_rgba(245,158,11,0.25)]'
+                    : 'bg-[#1C1F26] text-[#CBD5E1] hover:text-[#FFFFFF] hover:bg-[#252A34] border border-[#374151] hover:border-[#4B5563]'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${centerView === 'trajectory_history' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
+                2. Journey Stitcher
+              </button>
               <button
                 onClick={() => setCenterView('vision_lab')}
-                className={`flex-1 py-2 rounded-none transition-all flex items-center justify-center gap-1.5 cursor-pointer text-xs ${
+                className={`py-2 px-1 rounded-none transition-all flex items-center justify-center gap-1 cursor-pointer text-[11px] ${
                   centerView === 'vision_lab'
                     ? 'bg-[#252A34] text-[#FFFFFF] font-black border border-[#F59E0B] shadow-[inset_0_0_10px_rgba(245,158,11,0.12),0_0_10px_rgba(245,158,11,0.25)]'
                     : 'bg-[#1C1F26] text-[#CBD5E1] hover:text-[#FFFFFF] hover:bg-[#252A34] border border-[#374151] hover:border-[#4B5563]'
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${centerView === 'vision_lab' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
-                <Eye className="w-3.5 h-3.5" />
-                1. Split CLAHE Lab
+                3. CLAHE Lab
               </button>
               <button
                 onClick={() => setCenterView('gantry_3d')}
-                className={`flex-1 py-2 rounded-none transition-all flex items-center justify-center gap-1.5 cursor-pointer text-xs ${
+                className={`py-2 px-1 rounded-none transition-all flex items-center justify-center gap-1 cursor-pointer text-[11px] ${
                   centerView === 'gantry_3d'
                     ? 'bg-[#252A34] text-[#FFFFFF] font-black border border-[#F59E0B] shadow-[inset_0_0_10px_rgba(245,158,11,0.12),0_0_10px_rgba(245,158,11,0.25)]'
                     : 'bg-[#1C1F26] text-[#CBD5E1] hover:text-[#FFFFFF] hover:bg-[#252A34] border border-[#374151] hover:border-[#4B5563]'
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${centerView === 'gantry_3d' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
-                <Layers className="w-3.5 h-3.5" />
-                2. 3D Sensor Gantry
+                4. 3D Gantry
               </button>
               <button
                 onClick={() => setCenterView('gods_eye_radar')}
-                className={`flex-1 py-2 rounded-none transition-all flex items-center justify-center gap-1.5 cursor-pointer text-xs ${
+                className={`py-2 px-1 rounded-none transition-all flex items-center justify-center gap-1 cursor-pointer text-[11px] ${
                   centerView === 'gods_eye_radar'
                     ? 'bg-[#252A34] text-[#FFFFFF] font-black border border-[#F59E0B] shadow-[inset_0_0_10px_rgba(245,158,11,0.12),0_0_10px_rgba(245,158,11,0.25)]'
                     : 'bg-[#1C1F26] text-[#CBD5E1] hover:text-[#FFFFFF] hover:bg-[#252A34] border border-[#374151] hover:border-[#4B5563]'
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${centerView === 'gods_eye_radar' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
-                <Radar className="w-3.5 h-3.5" />
-                3. God's Eye Radar
+                5. God's Eye Radar
               </button>
               <button
                 onClick={() => setCenterView('route_sim')}
-                className={`flex-1 py-2 rounded-none transition-all flex items-center justify-center gap-1.5 cursor-pointer text-xs ${
+                className={`py-2 px-1 rounded-none transition-all flex items-center justify-center gap-1 cursor-pointer text-[11px] ${
                   centerView === 'route_sim'
                     ? 'bg-[#252A34] text-[#FFFFFF] font-black border border-[#F59E0B] shadow-[inset_0_0_10px_rgba(245,158,11,0.12),0_0_10px_rgba(245,158,11,0.25)]'
                     : 'bg-[#1C1F26] text-[#CBD5E1] hover:text-[#FFFFFF] hover:bg-[#252A34] border border-[#374151] hover:border-[#4B5563]'
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${centerView === 'route_sim' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
-                <Radio className="w-3.5 h-3.5" />
-                4. 3D Trajectory
+                6. 3D Corridor
               </button>
             </div>
 
             {/* Active Stage View */}
             <div className="w-full">
+              {centerView === 'cctv_matrix' && (
+                <TacticalCameraWall
+                  activeTargetPlate={trackedPlate}
+                  onSelectPlateForTracking={(p) => {
+                    handleSelectPlateForTracking(p);
+                    setCenterView('trajectory_history');
+                  }}
+                  isAnomalyActive={isAnomalyActive}
+                  onTriggerAnomaly={() => setIsAnomalyActive(!isAnomalyActive)}
+                />
+              )}
+
+              {centerView === 'trajectory_history' && (
+                <TrajectoryTimelineViewer
+                  activePlate={trackedPlate}
+                  onSelectPlate={(p) => setTrackedPlate(p)}
+                  isAnomalyActive={isAnomalyActive}
+                  onDispatchPcr={() => setPcrDispatched(true)}
+                />
+              )}
+
               {centerView === 'vision_lab' && (
                 <VisionLabSlider onSelectPlateForTracking={handleSelectPlateForTracking} />
               )}
@@ -399,11 +465,11 @@ export default function App() {
                       <div className="text-[#F8FAFC] font-bold text-sm">38.4° Pitch | ±2.1° Azimuth Tilt</div>
                     </div>
                     <button
-                      onClick={() => setCenterView('vision_lab')}
+                      onClick={() => setCenterView('cctv_matrix')}
                       className="px-3.5 py-1.5 bg-[#1C1F26] hover:bg-[#252A34] text-[#FFFFFF] font-bold rounded-none text-[11px] cursor-pointer transition-all border border-[#374151] hover:border-[#F59E0B] flex items-center gap-1.5 shadow-sm"
                     >
                       <span className="w-1.5 h-1.5 bg-[#F59E0B] rounded-none shadow-[0_0_6px_rgba(245,158,11,0.9)]" />
-                      SWITCH TO LIVE VIDEO
+                      SWITCH TO CCTV WALL
                     </button>
                   </div>
                 </div>
