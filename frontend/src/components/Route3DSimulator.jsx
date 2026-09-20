@@ -20,108 +20,308 @@ import {
   Volume2, 
   VolumeX,
   Camera,
-  Car
+  Car,
+  Move3d,
+  MousePointer
 } from 'lucide-react';
 
 /**
- * Route3DSimulator (Elite Multi-Camera Live Passing Trajectory Engine)
+ * Route3DSimulator - Defense-Grade 3D Highway Corridor & Real Cloned Vehicle Tracker
  * 
- * Features:
- * 1. Clean open 3D urban highway corridor with elevated flyover and concrete gantry arches.
- * 2. Realistic vehicle driving through each camera gantry (CAM_01 -> CAM_02 -> CAM_03 -> CAM_04).
- * 3. Optical strobe flash & ANPR acquisition trigger at each camera as the vehicle passes.
- * 4. 4 Live CCTV PIP Camera Monitors along the bottom showing simulated camera view,
- *    plate recognition overlay, speed calculation, and timestamp.
- * 5. Refined volumetric blue headlights & luminous trailing light ribbon (sleek, not bulky).
- * 6. Synthesized Web Audio API military klaxon buzzer on Cloned Alert.
+ * Implemented using:
+ *  - threejs-skills & threejs-fundamentals: Single-instantiation WebGL architecture with 60 FPS animation loop.
+ *  - threejs-interaction: Raycasting mouse tracking, 3D cursor crosshairs, and free 360° orbital control.
+ *  - threejs-geometry & threejs-materials: Compound realistic vehicle models, spinning rubber tires with alloy rims,
+ *    and authentic CanvasTexture Indian HSRP license plates (IND blue bar + Ashok Chakra).
+ *  - threejs-lighting: Directional sun/moon shadow casting, 4000K warm LED headlights with forward beam cones, and gantry optical strobes.
+ *  - UI/UX & Defense C4ISR Standard: Strict Charcoal (#0A0B0E), Slate Gunmetal (#1A1D24), Tactical Amber (#F59E0B), Crimson (#EF4444).
  */
-export default function Route3DSimulator({ activePlate = 'RJ 14 CA 0639' }) {
+
+// Helper to generate realistic high-resolution Indian High Security Registration Plate (HSRP)
+function createHSRPPlateTexture(plateNumber) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+
+  // White reflective base
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, 512, 128);
+
+  // Outer border
+  ctx.strokeStyle = '#0F172A';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(4, 4, 504, 120);
+
+  // Left Blue 'IND' country bar
+  ctx.fillStyle = '#1E3A8A';
+  ctx.fillRect(4, 4, 68, 120);
+
+  // Hologram Ashok Chakra circle
+  ctx.strokeStyle = '#60A5FA';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(38, 48, 18, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 'IND' Text
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 22px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('IND', 38, 96);
+
+  // License plate text in bold Indian RTO font
+  ctx.fillStyle = '#0F172A';
+  ctx.font = '900 64px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(plateNumber, 290, 64);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  return texture;
+}
+
+// Builds a realistic 3D vehicle with body, cabin, wheels, headlights, and front/rear HSRP plates
+function buildRealisticCarMesh({ bodyColor = 0x1E222B, plateNumber = 'HR 26 DQ 5521', isClone = false }) {
+  const carGroup = new THREE.Group();
+
+  // 1. Chassis / Lower Body
+  const chassisGeo = new THREE.BoxGeometry(4.2, 1.3, 8.8);
+  const chassisMat = new THREE.MeshStandardMaterial({
+    color: bodyColor,
+    metalness: 0.8,
+    roughness: 0.25
+  });
+  const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+  chassis.position.y = 1.1;
+  chassis.castShadow = true;
+  carGroup.add(chassis);
+
+  // Front Hood Slant
+  const hoodGeo = new THREE.BoxGeometry(4.0, 0.6, 2.6);
+  const hood = new THREE.Mesh(hoodGeo, chassisMat);
+  hood.position.set(0, 1.5, 2.9);
+  carGroup.add(hood);
+
+  // 2. Cabin / Greenhouse with Tinted Glass
+  const cabinGeo = new THREE.BoxGeometry(3.6, 1.4, 4.4);
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x0A0B0E,
+    metalness: 0.95,
+    roughness: 0.1,
+    transparent: true,
+    opacity: 0.92
+  });
+  const cabin = new THREE.Mesh(cabinGeo, glassMat);
+  cabin.position.set(0, 2.2, -0.4);
+  cabin.castShadow = true;
+  carGroup.add(cabin);
+
+  // 3. Front Grille
+  const grilleGeo = new THREE.BoxGeometry(3.0, 0.6, 0.2);
+  const grilleMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.9, roughness: 0.6 });
+  const grille = new THREE.Mesh(grilleGeo, grilleMat);
+  grille.position.set(0, 1.0, 4.42);
+  carGroup.add(grille);
+
+  // 4. Wheels with Realistic Rubber Tires and Silver Rims
+  const wheels = [];
+  const wheelPositions = [
+    [-2.1, 0.8, 2.5],
+    [2.1, 0.8, 2.5],
+    [-2.1, 0.8, -2.5],
+    [2.1, 0.8, -2.5]
+  ];
+
+  wheelPositions.forEach(([wx, wy, wz]) => {
+    const wheelGroup = new THREE.Group();
+    wheelGroup.position.set(wx, wy, wz);
+
+    // Rubber Tire
+    const tireGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.6, 16);
+    const tireMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
+    const tire = new THREE.Mesh(tireGeo, tireMat);
+    tire.rotation.z = Math.PI / 2;
+    wheelGroup.add(tire);
+
+    // Silver Alloy Rim
+    const rimGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.62, 12);
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xD1D5DB, metalness: 0.9, roughness: 0.2 });
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.rotation.z = Math.PI / 2;
+    wheelGroup.add(rim);
+
+    carGroup.add(wheelGroup);
+    wheels.push(wheelGroup);
+  });
+
+  // 5. Authentic HSRP Number Plates (Front & Rear)
+  const plateTexture = createHSRPPlateTexture(plateNumber);
+  const plateGeo = new THREE.PlaneGeometry(1.8, 0.5);
+  const plateMat = new THREE.MeshBasicMaterial({ map: plateTexture, side: THREE.DoubleSide });
+
+  // Front Plate
+  const frontPlate = new THREE.Mesh(plateGeo, plateMat);
+  frontPlate.position.set(0, 0.7, 4.43);
+  carGroup.add(frontPlate);
+
+  // Rear Plate
+  const rearPlate = new THREE.Mesh(plateGeo, plateMat);
+  rearPlate.rotation.y = Math.PI;
+  rearPlate.position.set(0, 0.9, -4.43);
+  carGroup.add(rearPlate);
+
+  // 6. Projector Headlights (4000K Warm White)
+  [-1.4, 1.4].forEach(hx => {
+    const hlLens = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6, 0.3, 0.1),
+      new THREE.MeshBasicMaterial({ color: 0xFFF5E0 })
+    );
+    hlLens.position.set(hx, 1.2, 4.41);
+    carGroup.add(hlLens);
+
+    // Forward Light Beam Cone
+    const beamGeo = new THREE.CylinderGeometry(0.15, 2.0, 16, 16, 1, true);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0xFFF5E0,
+      transparent: true,
+      opacity: 0.22,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const beam = new THREE.Mesh(beamGeo, beamMat);
+    beam.rotation.x = Math.PI / 2;
+    beam.position.set(hx, 1.2, 11);
+    carGroup.add(beam);
+
+    // Forward Spotlight for ground illumination
+    const spot = new THREE.SpotLight(0xFFF5E0, 2.8, 30, Math.PI / 6, 0.4, 1);
+    spot.position.set(hx, 1.2, 4.5);
+    spot.target.position.set(hx, 0, 20);
+    carGroup.add(spot);
+    carGroup.add(spot.target);
+  });
+
+  // 7. Red LED Taillights
+  [-1.4, 1.4].forEach(tx => {
+    const tlLens = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6, 0.25, 0.1),
+      new THREE.MeshBasicMaterial({ color: 0xEF4444 })
+    );
+    tlLens.position.set(tx, 1.2, -4.41);
+    carGroup.add(tlLens);
+  });
+
+  // 8. Overhead Tactical HUD Tag Sprite
+  const badgeCanvas = document.createElement('canvas');
+  badgeCanvas.width = 320;
+  badgeCanvas.height = 72;
+  const bCtx = badgeCanvas.getContext('2d');
+  bCtx.fillStyle = isClone ? '#EF4444' : '#10B981';
+  bCtx.fillRect(0, 0, 320, 72);
+  bCtx.strokeStyle = '#FFFFFF';
+  bCtx.lineWidth = 4;
+  bCtx.strokeRect(2, 2, 316, 68);
+  bCtx.fillStyle = '#FFFFFF';
+  bCtx.font = 'bold 24px monospace';
+  bCtx.textAlign = 'center';
+  bCtx.textBaseline = 'middle';
+  bCtx.fillText(isClone ? `[CLONE] ${plateNumber}` : `[TARGET] ${plateNumber}`, 160, 36);
+
+  const badgeSprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(badgeCanvas) })
+  );
+  badgeSprite.position.set(0, 5.4, 0);
+  badgeSprite.scale.set(9.5, 2.2, 1);
+  carGroup.add(badgeSprite);
+
+  return { carGroup, wheels };
+}
+
+export default function Route3DSimulator({ activePlate = 'HR 26 DQ 5521' }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
-  const vehicleGroupRef = useRef(null);
-  const ghostVehicleGroupRef = useRef(null);
-  const splineCurveRef = useRef(null);
-  const gantryStrobesRef = useRef([]);
-  const animRef = useRef(null);
+  const rendererRef = useRef(null);
 
-  // Simulation State
+  // References to vehicles and animated elements
+  const vehicleARef = useRef(null);
+  const vehicleBRef = useRef(null);
+  const wheelsARef = useRef([]);
+  const wheelsBRef = useRef([]);
+  const threatArcRef = useRef(null);
+  const threatBadgeRef = useRef(null);
+  const gantryStrobesRef = useRef([]);
+  const cursorRingRef = useRef(null);
+
+  // Spline Curves for Route A and Route B
+  const curveARef = useRef(null);
+  const curveBRef = useRef(null);
+
+  // Animation Progress Tracker (0 to 1)
+  const progressRef = useRef(0.15);
+  const [progressState, setProgressState] = useState(15);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [progress, setProgress] = useState(12); // 0 to 100%
   const [simSpeed, setSimSpeed] = useState(1.0);
   const [activeCamIndex, setActiveCamIndex] = useState(0);
-  const [clonedAlertActive, setClonedAlertActive] = useState(false);
-  const [cameraView, setCameraView] = useState('iso'); // 'iso' | 'chase' | 'gantry' | 'overhead'
+  const [clonedAlertActive, setClonedAlertActive] = useState(true);
+  const [cameraView, setCameraView] = useState('free'); // 'free' | 'chaseA' | 'chaseB' | 'gantry' | 'overhead'
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [capturedCams, setCapturedCams] = useState({ 0: true, 1: false, 2: false, 3: false });
+  const [cursorCoords, setCursorCoords] = useState({ x: 0, z: 0 });
+  const [hoveredObject, setHoveredObject] = useState(null);
 
-  // Camera Checkpoint Nodes along Delhi Highway Corridor
+  // 4 Delhi NCR Highway Gantries
   const checkpoints = [
     { 
-      id: 'CAM_01', 
-      name: 'DND Expressway Toll Gantry', 
-      location: 'DND Flyway, Delhi NCR',
+      id: 'CAM_DEL_DND_01', 
+      name: 'DND Toll Plaza (Delhi Inbound)', 
+      location: 'DND Flyway Corridor',
       time: '14:02:15', 
       speed: '68 km/h', 
-      speedVal: 68,
       conf: 99.4,
-      threshold: 12, // Progress % where vehicle passes this cam
-      pos: new THREE.Vector3(-70, 0, 40),
-      lane: 'Express Lane 3'
+      threshold: 0.12,
+      pos: new THREE.Vector3(-75, 0, 42),
+      lane: 'Expressway Gantry 1'
     },
     { 
-      id: 'CAM_02', 
-      name: 'Ring Road Elevated Flyover', 
-      location: 'Ashram Flyover Overpass',
+      id: 'CAM_DEL_ASHRAM_07', 
+      name: 'Ashram Chowk Elevated Flyover', 
+      location: 'Ring Road Arterial',
       time: '14:05:40', 
       speed: '61 km/h', 
-      speedVal: 61,
       conf: 98.2,
-      threshold: 38,
-      pos: new THREE.Vector3(-22, 10, 12),
+      threshold: 0.38,
+      pos: new THREE.Vector3(-22, 10, 14),
       lane: 'Elevated Deck Lane 2'
     },
     { 
-      id: 'CAM_03', 
-      name: 'Barakhamba Road Radial', 
-      location: 'Mandi House Outer Junction',
+      id: 'CAM_DEL_CP_OUTER_19', 
+      name: 'Connaught Place Outer Circle', 
+      location: 'Barakhamba Radial Junction',
       time: '14:09:10', 
       speed: '48 km/h', 
-      speedVal: 48,
       conf: 97.9,
-      threshold: 65,
-      pos: new THREE.Vector3(26, 0, -16),
+      threshold: 0.65,
+      pos: new THREE.Vector3(28, 0, -18),
       lane: 'Inbound Sector A'
     },
     { 
-      id: 'CAM_04', 
-      name: 'Connaught Place Outer Circle', 
-      location: 'Barakhamba Radial Entrance',
+      id: 'CAM_DEL_IGI_T3_29', 
+      name: 'IGI Airport Terminal 3 Gantry', 
+      location: 'Airport Express Corridor',
       time: '14:12:00', 
-      speed: '36 km/h', 
-      speedVal: 36,
-      conf: 96.8,
-      threshold: 90,
-      pos: new THREE.Vector3(72, 0, -42),
-      lane: 'Inner Roundabout'
+      speed: '75 km/h', 
+      conf: 98.7,
+      threshold: 0.90,
+      pos: new THREE.Vector3(78, 0, -45),
+      lane: 'Aviation Perimeter'
     }
   ];
 
-  // 3D Spline Path
-  const curvePoints = checkpoints.map(c => c.pos);
-  const curve = new THREE.CatmullRomCurve3([
-    curvePoints[0],
-    new THREE.Vector3(-48, 5, 26),
-    curvePoints[1],
-    new THREE.Vector3(2, 5, -2),
-    curvePoints[2],
-    new THREE.Vector3(48, 0, -30),
-    curvePoints[3]
-  ]);
-  splineCurveRef.current = curve;
-
-  // Web Audio API Synthesizer Alarm Buzzer
+  // Tactical Web Audio Siren
   const playTacticalAlarmSound = () => {
     if (!soundEnabled) return;
     try {
@@ -130,394 +330,311 @@ export default function Route3DSimulator({ activePlate = 'RJ 14 CA 0639' }) {
       const ctx = new AudioCtx();
       const now = ctx.currentTime;
 
-      // Tone 1: High Warble Alert
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'sawtooth';
-      osc1.frequency.setValueAtTime(880, now);
-      osc1.frequency.exponentialRampToValueAtTime(440, now + 0.18);
-      gain1.gain.setValueAtTime(0.35, now);
-      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(now);
-      osc1.stop(now + 0.2);
-
-      // Tone 2: Secondary Warning Pulse
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'sawtooth';
-      osc2.frequency.setValueAtTime(880, now + 0.22);
-      osc2.frequency.exponentialRampToValueAtTime(440, now + 0.4);
-      gain2.gain.setValueAtTime(0.4, now + 0.22);
-      gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.42);
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-      osc2.start(now + 0.22);
-      osc2.stop(now + 0.42);
-
-      // Tone 3: Klaxon Resonator
-      const osc3 = ctx.createOscillator();
-      const gain3 = ctx.createGain();
-      osc3.type = 'square';
-      osc3.frequency.setValueAtTime(587.33, now + 0.45);
-      osc3.frequency.setValueAtTime(520.0, now + 0.65);
-      gain3.gain.setValueAtTime(0.3, now + 0.45);
-      gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.85);
-      osc3.connect(gain3);
-      gain3.connect(ctx.destination);
-      osc3.start(now + 0.45);
-      osc3.stop(now + 0.85);
-    } catch (err) {
-      console.warn('Web Audio error:', err);
-    }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(440, now + 0.3);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } catch (e) {}
   };
 
-  // Main Three.js Scene Setup
+  // Initialize Three.js Scene ONCE
   useEffect(() => {
     if (!mountRef.current) return;
     const container = mountRef.current;
     const width = container.clientWidth;
-    const height = container.clientHeight || 420;
+    const height = container.clientHeight || 440;
 
     // 1. Scene
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     scene.background = new THREE.Color(0x0A0B0E);
-    scene.fog = new THREE.FogExp2(0x0A0B0E, 0.0035);
+    scene.fog = new THREE.FogExp2(0x0A0B0E, 0.0032);
 
     // 2. Camera
     const camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
-    camera.position.set(0, 80, 125);
+    camera.position.set(0, 85, 130);
     cameraRef.current = camera;
 
-    // 3. Renderer
+    // 3. WebGL Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    rendererRef.current = renderer;
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    // 4. OrbitControls
+    // 4. OrbitControls with Free Mouse Movement
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 - 0.05;
-    controls.minDistance = 20;
-    controls.maxDistance = 260;
+    controls.maxPolarAngle = Math.PI / 2 - 0.02;
+    controls.minDistance = 15;
+    controls.maxDistance = 300;
     controls.target.set(0, 4, 0);
 
     // 5. Lighting
-    const amb = new THREE.AmbientLight(0x262933, 2.0);
-    scene.add(amb);
+    const ambientLight = new THREE.AmbientLight(0x2A303C, 2.2);
+    scene.add(ambientLight);
 
-    const sun = new THREE.DirectionalLight(0xd1d5db, 2.2);
-    sun.position.set(60, 90, 50);
+    const sun = new THREE.DirectionalLight(0xE5E7EB, 2.5);
+    sun.position.set(80, 110, 60);
     sun.castShadow = true;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
     scene.add(sun);
 
-    // 6. Tactical Ground Grid & Multi-Lane Road Network
-    const grid = new THREE.GridHelper(260, 52, 0x475569, 0x262933);
-    grid.position.y = -0.1;
-    scene.add(grid);
+    // 6. Tactical Ground Grid
+    const groundGrid = new THREE.GridHelper(300, 60, 0x374151, 0x1A1D24);
+    groundGrid.position.y = -0.05;
+    scene.add(groundGrid);
 
-    // Highway Asphalt Deck (Elevated and ground road ribbon)
-    const roadGeo = new THREE.TubeGeometry(curve, 120, 3.2, 8, false);
-    const roadMat = new THREE.MeshStandardMaterial({
-      color: 0x13151B,
-      roughness: 0.8,
-      metalness: 0.2
-    });
-    const roadMesh = new THREE.Mesh(roadGeo, roadMat);
-    roadMesh.receiveShadow = true;
-    scene.add(roadMesh);
+    // 7. Route A Spline Curve (Primary Highway)
+    const curveA = new THREE.CatmullRomCurve3([
+      checkpoints[0].pos,
+      new THREE.Vector3(-50, 5, 28),
+      checkpoints[1].pos,
+      new THREE.Vector3(4, 5, -2),
+      checkpoints[2].pos,
+      new THREE.Vector3(52, 0, -32),
+      checkpoints[3].pos
+    ]);
+    curveARef.current = curveA;
 
-    // Sleek Trajectory Line
-    const trajectoryLineGeo = new THREE.TubeGeometry(curve, 120, 0.35, 6, false);
-    const trajectoryLineMat = new THREE.MeshBasicMaterial({ color: 0xE2E8F0, transparent: true, opacity: 0.85 });
-    const trajectoryLine = new THREE.Mesh(trajectoryLineGeo, trajectoryLineMat);
-    scene.add(trajectoryLine);
+    // Route B Spline Curve (Intersecting / Parallel Arterial Corridor for Cloned Vehicle)
+    const curveB = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(75, 0, 50),
+      new THREE.Vector3(40, 6, 25),
+      new THREE.Vector3(0, 10, 0),
+      new THREE.Vector3(-40, 6, -25),
+      new THREE.Vector3(-75, 0, -50)
+    ]);
+    curveBRef.current = curveB;
 
-    // Flyover Support Pillars
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 });
-    for (let t = 0.2; t <= 0.55; t += 0.07) {
-      const pt = curve.getPoint(t);
-      if (pt.y > 1.5) {
-        const pGeo = new THREE.CylinderGeometry(1.2, 1.4, pt.y, 8);
-        const pillar = new THREE.Mesh(pGeo, pillarMat);
-        pillar.position.set(pt.x, pt.y / 2, pt.z);
+    // Highway Asphalt Mesh A
+    const roadAGeo = new THREE.TubeGeometry(curveA, 140, 3.8, 8, false);
+    const roadAMat = new THREE.MeshStandardMaterial({ color: 0x14171F, roughness: 0.85, metalness: 0.15 });
+    const roadAMesh = new THREE.Mesh(roadAGeo, roadAMat);
+    roadAMesh.receiveShadow = true;
+    scene.add(roadAMesh);
+
+    // Highway Asphalt Mesh B
+    const roadBGeo = new THREE.TubeGeometry(curveB, 100, 3.8, 8, false);
+    const roadBMat = new THREE.MeshStandardMaterial({ color: 0x181C26, roughness: 0.85, metalness: 0.15 });
+    const roadBMesh = new THREE.Mesh(roadBGeo, roadBMat);
+    roadBMesh.receiveShadow = true;
+    scene.add(roadBMesh);
+
+    // Centerline Lane Divider Strips
+    const lineAGeo = new THREE.TubeGeometry(curveA, 140, 0.25, 4, false);
+    const lineAMat = new THREE.MeshBasicMaterial({ color: 0xF59E0B, transparent: true, opacity: 0.8 });
+    const lineA = new THREE.Mesh(lineAGeo, lineAMat);
+    scene.add(lineA);
+
+    const lineBGeo = new THREE.TubeGeometry(curveB, 100, 0.25, 4, false);
+    const lineBMat = new THREE.MeshBasicMaterial({ color: 0x10B981, transparent: true, opacity: 0.7 });
+    const lineB = new THREE.Mesh(lineBGeo, lineBMat);
+    scene.add(lineB);
+
+    // Flyover Concrete Pillars
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.9 });
+    for (let t = 0.2; t <= 0.6; t += 0.08) {
+      const ptA = curveA.getPoint(t);
+      if (ptA.y > 1.5) {
+        const pillarGeo = new THREE.CylinderGeometry(1.2, 1.4, ptA.y, 8);
+        const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+        pillar.position.set(ptA.x, ptA.y / 2, ptA.z);
         scene.add(pillar);
       }
     }
 
-    // 7. Checkpoint Overhead Gantry Portals (CAM_01, CAM_02, CAM_03, CAM_04)
+    // 8. Overhead Camera Gantries with Optical Strobes
     const strobes = [];
-    checkpoints.forEach((cp, idx) => {
-      const gantryArch = new THREE.Group();
-      gantryArch.position.copy(cp.pos);
+    checkpoints.forEach((cp) => {
+      const gantry = new THREE.Group();
+      gantry.position.copy(cp.pos);
 
-      // Tangent orientation at checkpoint
-      const t = cp.threshold / 100;
-      const tangent = curve.getTangent(Math.min(0.99, Math.max(0.01, t)));
-      const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
-
-      // Dual Gantry Columns spanning across road width
+      // Columns
       [-5.5, 5.5].forEach(sideOffset => {
-        const colPos = normal.clone().multiplyScalar(sideOffset);
-        const colGeo = new THREE.CylinderGeometry(0.6, 0.7, 14, 8);
-        const colMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85 });
+        const colGeo = new THREE.CylinderGeometry(0.5, 0.6, 15, 8);
+        const colMat = new THREE.MeshStandardMaterial({ color: 0x1F2937, metalness: 0.85 });
         const col = new THREE.Mesh(colGeo, colMat);
-        col.position.set(colPos.x, 7, colPos.z);
-        gantryArch.add(col);
+        col.position.set(sideOffset, 7.5, 0);
+        gantry.add(col);
       });
 
-      // Overhead Crossbar Beam
-      const barGeo = new THREE.BoxGeometry(12, 1.2, 1.6);
-      const barMat = new THREE.MeshStandardMaterial({ color: 0x00A8FF, metalness: 0.9, roughness: 0.2 });
-      const bar = new THREE.Mesh(barGeo, barMat);
-      bar.position.set(0, 14, 0);
-      bar.lookAt(bar.position.clone().add(tangent));
-      bar.rotation.y += Math.PI / 2;
-      gantryArch.add(bar);
+      // Overhead Beam
+      const beamGeo = new THREE.BoxGeometry(12, 1.2, 1.4);
+      const beamMat = new THREE.MeshStandardMaterial({ color: 0x374151, metalness: 0.8 });
+      const beam = new THREE.Mesh(beamGeo, beamMat);
+      beam.position.set(0, 14.5, 0);
+      gantry.add(beam);
 
-      // Camera Sensor Pod with Optical Lens
-      const camPodGeo = new THREE.BoxGeometry(2.0, 1.2, 2.5);
-      const camPodMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9 });
-      const camPod = new THREE.Mesh(camPodGeo, camPodMat);
-      camPod.position.set(0, 13, 0);
-      camPod.lookAt(camPod.position.clone().add(tangent));
-      gantryArch.add(camPod);
+      // Camera Sensor Pod
+      const podGeo = new THREE.BoxGeometry(1.8, 1.0, 2.2);
+      const podMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.9 });
+      const pod = new THREE.Mesh(podGeo, podMat);
+      pod.position.set(0, 13.6, 0);
+      gantry.add(pod);
 
-      // Camera Status Indicator LED (Green)
+      // Status Green LED
       const led = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3, 8, 8),
+        new THREE.SphereGeometry(0.25, 8, 8),
         new THREE.MeshBasicMaterial({ color: 0x10B981 })
       );
-      led.position.set(0, 12.8, 1.3);
-      camPod.add(led);
+      led.position.set(0, 13.6, 1.2);
+      pod.add(led);
 
-      // Optical Strobe Flash Light (Flashes when car passes underneath)
-      const strobeLight = new THREE.PointLight(0xFFFFFF, 0, 35);
-      strobeLight.position.set(0, 12.5, 0);
-      gantryArch.add(strobeLight);
-      strobes.push(strobeLight);
+      // Optical Strobe Flash Light
+      const strobe = new THREE.PointLight(0xFFFFFF, 0, 40);
+      strobe.position.set(0, 13.0, 0);
+      gantry.add(strobe);
+      strobes.push(strobe);
 
-      // Ground Sighting Target Reticle Ring
-      const ringGeo = new THREE.RingGeometry(3.5, 4.0, 24);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x00A8FF, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = 0.1;
-      gantryArch.add(ring);
-
-      scene.add(gantryArch);
+      scene.add(gantry);
     });
     gantryStrobesRef.current = strobes;
 
-    // 8. Sleek Target Vehicle with Refined Volumetric Blue Rays
-    const vehicleGroup = new THREE.Group();
-    vehicleGroupRef.current = vehicleGroup;
-
-    // Vehicle Body (Deep tactical blue metallic)
-    const vBody = new THREE.Mesh(
-      new THREE.BoxGeometry(4.2, 1.8, 8.5),
-      new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.85, roughness: 0.25 })
-    );
-    vBody.position.y = 1.3;
-    vBody.castShadow = true;
-    vehicleGroup.add(vBody);
-
-    // Windshield & Cabin
-    const vCabin = new THREE.Mesh(
-      new THREE.BoxGeometry(3.5, 1.5, 4.8),
-      new THREE.MeshStandardMaterial({ color: 0x0b1120, metalness: 0.95, roughness: 0.1 })
-    );
-    vCabin.position.set(0, 2.8, -0.6);
-    vehicleGroup.add(vCabin);
-
-    // ==========================================
-    // REFINED VOLUMETRIC BLUE RAYS OF LIGHT
-    // ==========================================
-    // Twin forward soft volumetric blue light cones (sleek & elegant)
-    [-1.4, 1.4].forEach(hx => {
-      // 1. Blue Headlight Lens
-      const hl = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.2), new THREE.MeshBasicMaterial({ color: 0x38BDF8 }));
-      hl.position.set(hx, 1.3, 4.3);
-      vehicleGroup.add(hl);
-
-      // 2. Volumetric Blue Light Ray Cone (Tapered, semi-transparent)
-      const rayGeo = new THREE.CylinderGeometry(0.2, 2.5, 20, 16, 1, true);
-      const rayMat = new THREE.MeshBasicMaterial({
-        color: 0x00A8FF,
-        transparent: true,
-        opacity: 0.35,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
-      const rayCone = new THREE.Mesh(rayGeo, rayMat);
-      rayCone.rotation.x = Math.PI / 2;
-      rayCone.position.set(hx, 1.3, 14);
-      vehicleGroup.add(rayCone);
-
-      // 3. Core Laser Filament
-      const laserPts = [new THREE.Vector3(hx, 1.3, 4.3), new THREE.Vector3(hx, 0.1, 26)];
-      const laserLine = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(laserPts),
-        new THREE.LineBasicMaterial({ color: 0x38BDF8, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })
-      );
-      vehicleGroup.add(laserLine);
-
-      // 4. SpotLight on Road
-      const spot = new THREE.SpotLight(0x00A8FF, 3.0, 35, Math.PI / 5, 0.5, 1);
-      spot.position.set(hx, 1.3, 4.5);
-      spot.target.position.set(hx, 0, 22);
-      vehicleGroup.add(spot);
-      vehicleGroup.add(spot.target);
+    // 9. Build Realistic Target Vehicle A
+    const { carGroup: carA, wheels: wheelsA } = buildRealisticCarMesh({
+      bodyColor: 0x1E222B, // Dark Gunmetal SUV
+      plateNumber: activePlate,
+      isClone: false
     });
+    vehicleARef.current = carA;
+    wheelsARef.current = wheelsA;
+    scene.add(carA);
 
-    // Vertical Blue Tactical Satellite Tracking Ray
-    const vertBeamGeo = new THREE.CylinderGeometry(0.18, 0.18, 55, 8);
-    const vertBeamMat = new THREE.MeshBasicMaterial({
-      color: 0x00A8FF,
-      transparent: true,
-      opacity: 0.6,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+    // 10. Build Real Cloned Vehicle B (Simultaneously driving with IDENTICAL plate!)
+    const { carGroup: carB, wheels: wheelsB } = buildRealisticCarMesh({
+      bodyColor: 0xE2E8F0, // Pearl Silver Sedan
+      plateNumber: activePlate,
+      isClone: true
     });
-    const vertBeam = new THREE.Mesh(vertBeamGeo, vertBeamMat);
-    vertBeam.position.set(0, 28, 0);
-    vehicleGroup.add(vertBeam);
+    vehicleBRef.current = carB;
+    wheelsBRef.current = wheelsB;
+    scene.add(carB);
 
-    // Blue Ground Neon Underglow
-    const underglowGeo = new THREE.PlaneGeometry(7.5, 12);
-    const underglowMat = new THREE.MeshBasicMaterial({
-      color: 0x00A8FF,
-      transparent: true,
-      opacity: 0.45,
+    // 11. Tactical Threat Arc (Connects Vehicle A and Cloned Vehicle B)
+    const arcGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 20, 0),
+      new THREE.Vector3(0, 0, 0)
+    ]);
+    const arcMat = new THREE.LineDashedMaterial({
+      color: 0xEF4444,
+      dashSize: 3,
+      gapSize: 1.5,
+      linewidth: 3
+    });
+    const threatArc = new THREE.Line(arcGeo, arcMat);
+    threatArc.computeLineDistances();
+    threatArcRef.current = threatArc;
+    scene.add(threatArc);
+
+    // Floating Threat Banner on Arc
+    const tBadgeCanvas = document.createElement('canvas');
+    tBadgeCanvas.width = 440;
+    tBadgeCanvas.height = 80;
+    const tbCtx = tBadgeCanvas.getContext('2d');
+    tbCtx.fillStyle = '#EF4444';
+    tbCtx.fillRect(0, 0, 440, 80);
+    tbCtx.strokeStyle = '#FFFFFF';
+    tbCtx.lineWidth = 4;
+    tbCtx.strokeRect(2, 2, 436, 76);
+    tbCtx.fillStyle = '#FFFFFF';
+    tbCtx.font = 'bold 22px monospace';
+    tbCtx.textAlign = 'center';
+    tbCtx.fillText('DEFCON 1: CLONED REGISTRATION', 220, 32);
+    tbCtx.font = '16px monospace';
+    tbCtx.fillText('24.6 KM APART | V > 2,000 KM/H (IMPOSSIBLE)', 220, 60);
+
+    const threatBadge = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(tBadgeCanvas) })
+    );
+    threatBadge.scale.set(15, 2.8, 1);
+    threatBadgeRef.current = threatBadge;
+    scene.add(threatBadge);
+
+    // 12. Movable 3D Tactical Cursor Ring (Follows mouse in real-time)
+    const cursorGeo = new THREE.RingGeometry(3.0, 3.4, 32);
+    const cursorMat = new THREE.MeshBasicMaterial({
+      color: 0xF59E0B,
       side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+      transparent: true,
+      opacity: 0.8
     });
-    const underglow = new THREE.Mesh(underglowGeo, underglowMat);
-    underglow.rotation.x = -Math.PI / 2;
-    underglow.position.set(0, 0.1, 0);
-    vehicleGroup.add(underglow);
+    const cursorRing = new THREE.Mesh(cursorGeo, cursorMat);
+    cursorRing.rotation.x = -Math.PI / 2;
+    cursorRing.position.y = 0.2;
+    cursorRingRef.current = cursorRing;
+    scene.add(cursorRing);
 
-    // 4 Wheels
-    [[-2.1, 0.9, 2.4], [2.1, 0.9, 2.4], [-2.1, 0.9, -2.4], [2.1, 0.9, -2.4]].forEach(([wx, wy, wz]) => {
-      const wGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.7, 12);
-      const wheel = new THREE.Mesh(wGeo, new THREE.MeshStandardMaterial({ color: 0x090D16, roughness: 0.9 }));
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(wx, wy, wz);
-      vehicleGroup.add(wheel);
-    });
+    // 13. Raycaster & Mouse Move Listener for Movable Cursor Movement
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-    // Floating Target Plate Sprite
-    const tagCanvas = document.createElement('canvas');
-    tagCanvas.width = 256;
-    tagCanvas.height = 64;
-    const tagCtx = tagCanvas.getContext('2d');
-    tagCtx.fillStyle = '#0B0F19';
-    tagCtx.fillRect(0, 0, 256, 64);
-    tagCtx.strokeStyle = '#00A8FF';
-    tagCtx.lineWidth = 4;
-    tagCtx.strokeRect(2, 2, 252, 60);
-    tagCtx.fillStyle = '#00A8FF';
-    tagCtx.font = 'bold 28px monospace';
-    tagCtx.textAlign = 'center';
-    tagCtx.textBaseline = 'middle';
-    tagCtx.fillText(activePlate, 128, 32);
+    const handleMouseMove = (e) => {
+      const rect = container.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    const tagSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(tagCanvas) }));
-    tagSprite.position.set(0, 5.8, 0);
-    tagSprite.scale.set(9, 2.2, 1);
-    vehicleGroup.add(tagSprite);
+      raycaster.setFromCamera(mouse, camera);
+      const intersection = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(plane, intersection)) {
+        if (cursorRingRef.current) {
+          cursorRingRef.current.position.x = intersection.x;
+          cursorRingRef.current.position.z = intersection.z;
+        }
+        setCursorCoords({
+          x: Math.round(intersection.x * 10) / 10,
+          z: Math.round(intersection.z * 10) / 10
+        });
+      }
+    };
 
-    scene.add(vehicleGroup);
+    container.addEventListener('mousemove', handleMouseMove);
 
-    // 9. Ghost Vehicle for Cloned Anomaly (Red)
-    const ghostGroup = new THREE.Group();
-    ghostVehicleGroupRef.current = ghostGroup;
-    ghostGroup.position.set(65, 0, 45);
-
-    const gBody = new THREE.Mesh(
-      new THREE.BoxGeometry(4.2, 1.8, 8.5),
-      new THREE.MeshStandardMaterial({ color: 0xEF4444, metalness: 0.85 })
-    );
-    gBody.position.y = 1.3;
-    ghostGroup.add(gBody);
-
-    const gBadgeCanvas = document.createElement('canvas');
-    gBadgeCanvas.width = 280;
-    gBadgeCanvas.height = 64;
-    const gCtx = gBadgeCanvas.getContext('2d');
-    gCtx.fillStyle = '#EF4444';
-    gCtx.fillRect(0, 0, 280, 64);
-    gCtx.fillStyle = '#FFFFFF';
-    gCtx.font = 'bold 22px monospace';
-    gCtx.textAlign = 'center';
-    gCtx.textBaseline = 'middle';
-    gCtx.fillText(`CLONE: ${activePlate}`, 140, 32);
-
-    const gSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(gBadgeCanvas) }));
-    gSprite.position.set(0, 6.5, 0);
-    gSprite.scale.set(10, 2.4, 1);
-    ghostGroup.add(gSprite);
-    ghostGroup.visible = false;
-    scene.add(ghostGroup);
-
-    // Impossible Arc (Red)
-    const arcPts = [];
-    const p1 = checkpoints[0].pos;
-    const p2 = ghostGroup.position;
-    for (let i = 0; i <= 30; i++) {
-      const alpha = i / 30;
-      const x = p1.x + (p2.x - p1.x) * alpha;
-      const z = p1.z + (p2.z - p1.z) * alpha;
-      const y = Math.sin(alpha * Math.PI) * 40;
-      arcPts.push(new THREE.Vector3(x, y, z));
-    }
-    const arcLine = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(arcPts),
-      new THREE.LineDashedMaterial({ color: 0xEF4444, dashSize: 3, gapSize: 2, linewidth: 3 })
-    );
-    arcLine.computeLineDistances();
-    arcLine.visible = false;
-    arcLine.name = 'impossibleArc';
-    scene.add(arcLine);
-
-    // 10. Animation Loop (Live Vehicle Movement through Cameras)
+    // 14. Smooth 60 FPS Render Loop
     let animId;
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
       const delta = clock.getDelta();
-      const elapsedTime = clock.getElapsedTime();
+      const elapsed = clock.getElapsedTime();
 
-      // Vehicle Position & Direction along Spline
-      const u = Math.max(0.001, Math.min(0.999, progress / 100));
-      const pos = curve.getPoint(u);
-      const tangent = curve.getTangent(u);
+      // Update Vehicle A along Curve A
+      if (curveARef.current && vehicleARef.current) {
+        const uA = Math.max(0.001, Math.min(0.999, progressRef.current));
+        const posA = curveARef.current.getPoint(uA);
+        const tanA = curveARef.current.getTangent(uA);
 
-      if (vehicleGroupRef.current) {
-        vehicleGroupRef.current.position.copy(pos);
-        const lookTarget = pos.clone().add(tangent);
-        vehicleGroupRef.current.lookAt(lookTarget);
-      }
+        vehicleARef.current.position.copy(posA);
+        vehicleARef.current.lookAt(posA.clone().add(tanA));
 
-      // Checkpoint Optical Flash Trigger (when vehicle is directly at a gantry)
-      if (gantryStrobesRef.current.length > 0) {
+        // Spin wheels based on velocity
+        wheelsARef.current.forEach(w => {
+          w.rotation.x += delta * 18.0;
+        });
+
+        // Trigger Optical Gantry Strobes
         checkpoints.forEach((cp, idx) => {
-          const distToGantry = Math.abs(progress - cp.threshold);
+          const dist = Math.abs(progressRef.current - cp.threshold);
           const strobe = gantryStrobesRef.current[idx];
           if (strobe) {
-            if (distToGantry < 2.5) {
-              // Passing under gantry: Strobe fires!
-              strobe.intensity = 8.0 * (Math.sin(elapsedTime * 30) > 0 ? 1 : 0.2);
+            if (dist < 0.025) {
+              strobe.intensity = 10.0 * (Math.sin(elapsed * 40) > 0 ? 1 : 0.2);
             } else {
               strobe.intensity = 0;
             }
@@ -525,11 +642,41 @@ export default function Route3DSimulator({ activePlate = 'RJ 14 CA 0639' }) {
         });
       }
 
-      // Camera Presets
-      if (cameraView === 'chase' && cameraRef.current && controlsRef.current) {
-        const offset = tangent.clone().multiplyScalar(-24).add(new THREE.Vector3(0, 10, 0));
-        cameraRef.current.position.lerp(pos.clone().add(offset), 0.08);
-        controlsRef.current.target.lerp(pos, 0.1);
+      // Update Cloned Vehicle B along Curve B (Offset position)
+      if (curveBRef.current && vehicleBRef.current) {
+        const uB = Math.max(0.001, Math.min(0.999, (progressRef.current + 0.35) % 1.0));
+        const posB = curveBRef.current.getPoint(uB);
+        const tanB = curveBRef.current.getTangent(uB);
+
+        vehicleBRef.current.position.copy(posB);
+        vehicleBRef.current.lookAt(posB.clone().add(tanB));
+
+        wheelsBRef.current.forEach(w => {
+          w.rotation.x += delta * 18.0;
+        });
+      }
+
+      // Update Threat Vector Arc between Vehicle A and Vehicle B
+      if (threatArcRef.current && vehicleARef.current && vehicleBRef.current) {
+        const pA = vehicleARef.current.position;
+        const pB = vehicleBRef.current.position;
+
+        const arcPoints = [];
+        for (let i = 0; i <= 30; i++) {
+          const t = i / 30;
+          const x = pA.x + (pB.x - pA.x) * t;
+          const z = pA.z + (pB.z - pA.z) * t;
+          const y = Math.sin(t * Math.PI) * 28 + Math.max(pA.y, pB.y);
+          arcPoints.push(new THREE.Vector3(x, y, z));
+        }
+        threatArcRef.current.geometry.setFromPoints(arcPoints);
+        threatArcRef.current.computeLineDistances();
+
+        // Center threat banner over the apex of the arc
+        if (threatBadgeRef.current) {
+          const midPt = arcPoints[15];
+          threatBadgeRef.current.position.set(midPt.x, midPt.y + 4.5, midPt.z);
+        }
       }
 
       controls.update();
@@ -541,7 +688,7 @@ export default function Route3DSimulator({ activePlate = 'RJ 14 CA 0639' }) {
     const handleResize = () => {
       if (!container) return;
       const w = container.clientWidth;
-      const h = container.clientHeight || 420;
+      const h = container.clientHeight || 440;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
@@ -550,58 +697,33 @@ export default function Route3DSimulator({ activePlate = 'RJ 14 CA 0639' }) {
 
     return () => {
       cancelAnimationFrame(animId);
+      container.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
     };
-  }, [progress, cameraView]);
+  }, []); // Initialized ONCE
 
-  // Simulation Timeline Loop
+  // Simulation Timeline Loop (Smooth progress increments)
   useEffect(() => {
     let interval;
     if (isPlaying) {
       interval = setInterval(() => {
-        setProgress(prev => {
-          const next = (prev + 0.35 * simSpeed) % 100;
+        progressRef.current = (progressRef.current + 0.0025 * simSpeed) % 1.0;
+        const pct = Math.round(progressRef.current * 100);
+        setProgressState(pct);
 
-          // Update active checkpoint & captured flags
-          checkpoints.forEach((cp, idx) => {
-            if (next >= cp.threshold) {
-              setActiveCamIndex(idx);
-              setCapturedCams(prevCaptures => ({ ...prevCaptures, [idx]: true }));
-            }
-          });
-
-          // Reset captures when looping
-          if (next < 5) {
-            setCapturedCams({ 0: true, 1: false, 2: false, 3: false });
+        // Update active gantry index
+        checkpoints.forEach((cp, idx) => {
+          if (progressRef.current >= cp.threshold) {
+            setActiveCamIndex(idx);
           }
-
-          return next;
         });
       }, 50);
     }
     return () => clearInterval(interval);
   }, [isPlaying, simSpeed]);
 
-  // Update Cloned Anomaly
-  useEffect(() => {
-    if (!sceneRef.current) return;
-    if (ghostVehicleGroupRef.current) {
-      ghostVehicleGroupRef.current.visible = clonedAlertActive;
-    }
-    const arc = sceneRef.current.getObjectByName('impossibleArc');
-    if (arc) {
-      arc.visible = clonedAlertActive;
-    }
-  }, [clonedAlertActive]);
-
-  // Trigger Cloned Alert + Buzzer
-  const handleTriggerClonedAlert = () => {
-    setClonedAlertActive(true);
-    playTacticalAlarmSound();
-  };
-
-  // Switch Camera Views
+  // Handle Preset Views
   const setPreset = (preset) => {
     setCameraView(preset);
     if (!cameraRef.current || !controlsRef.current) return;
@@ -609,17 +731,31 @@ export default function Route3DSimulator({ activePlate = 'RJ 14 CA 0639' }) {
     const ctrl = controlsRef.current;
 
     switch (preset) {
-      case 'iso':
-        cam.position.set(0, 80, 125);
+      case 'free':
+        cam.position.set(0, 85, 130);
         ctrl.target.set(0, 4, 0);
         break;
-      case 'gantry': // Lock onto currently active gantry
-        const targetGantry = checkpoints[activeCamIndex].pos;
-        cam.position.set(targetGantry.x + 12, targetGantry.y + 18, targetGantry.z + 24);
-        ctrl.target.copy(targetGantry);
+      case 'chaseA':
+        if (vehicleARef.current) {
+          const p = vehicleARef.current.position;
+          cam.position.set(p.x, p.y + 12, p.z - 26);
+          ctrl.target.copy(p);
+        }
+        break;
+      case 'chaseB':
+        if (vehicleBRef.current) {
+          const p = vehicleBRef.current.position;
+          cam.position.set(p.x, p.y + 12, p.z - 26);
+          ctrl.target.copy(p);
+        }
+        break;
+      case 'gantry':
+        const gPos = checkpoints[activeCamIndex].pos;
+        cam.position.set(gPos.x + 14, gPos.y + 18, gPos.z + 24);
+        ctrl.target.copy(gPos);
         break;
       case 'overhead':
-        cam.position.set(0, 150, 0);
+        cam.position.set(0, 160, 0);
         ctrl.target.set(0, 0, 0);
         break;
       default:
@@ -631,204 +767,226 @@ export default function Route3DSimulator({ activePlate = 'RJ 14 CA 0639' }) {
   const currentCam = checkpoints[activeCamIndex] || checkpoints[0];
 
   return (
-    <div className="flex flex-col gap-3 font-mono">
+    <div className="flex flex-col gap-3 font-mono text-xs">
       {/* Header Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#2E3440]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2.5 border-b border-[#262933]">
         <div>
-          <div className="text-xs text-[#CBD5E1] font-bold uppercase tracking-wider flex items-center gap-1.5">
-            <Radio className="w-3.5 h-3.5 text-[#CBD5E1]" />
-            MODULE 4: MULTI-CAMERA LIVE PASSING TRAJECTORY
+          <div className="text-[10px] text-[#CBD5E1] uppercase tracking-wider flex items-center gap-1.5">
+            <Radio className="w-3.5 h-3.5 text-[#10B981]" />
+            <span>3D HIGHWAY CORRIDOR // REAL CLONED VEHICLE TRACKER</span>
           </div>
-          <div className="text-lg font-bold font-['Orbitron'] text-[#FFFFFF] flex items-center gap-2 mt-0.5">
-            Trajectory Reconstruction
-            <span className="text-[10px] font-mono bg-[#121417] text-[#CBD5E1] border border-[#2E3440] px-2 py-0.5">
-              PASSING: {currentCam.id} ({currentCam.name.split(' ')[0]})
-            </span>
-            <span className="text-[10px] font-mono bg-[#2A2F3A] text-[#CBD5E1] border border-[#CBD5E1]/40 px-2 py-0.5 flex items-center gap-1">
-              <Zap className="w-3 h-3 text-[#CBD5E1] animate-pulse" />
-              BLUE RAY ACTIVE
+          <div className="text-base font-bold text-[#FFFFFF] flex items-center gap-2 mt-0.5">
+            <span>Spatial Trajectory Engine</span>
+            <span className="text-[10px] bg-[#1A1D24] text-[#F59E0B] border border-[#F59E0B]/40 px-2 py-0.5 font-bold">
+              APPROACHING: {currentCam.id}
             </span>
           </div>
         </div>
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Audio Alert Toggle */}
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`p-2 border rounded-none cursor-pointer transition-all flex items-center gap-1.5 ${
-              soundEnabled 
-                ? 'bg-[#252A34] text-[#FFFFFF] border-[#F59E0B] shadow-[inset_0_0_8px_rgba(245,158,11,0.15)]' 
-                : 'bg-[#1A1D24] text-[#CBD5E1] border-[#374151] hover:bg-[#252A34] hover:text-[#FFFFFF]'
+            className={`p-2 border rounded-none cursor-pointer transition-all ${
+              soundEnabled
+                ? 'bg-[#252A34] text-[#F59E0B] border-[#F59E0B]'
+                : 'bg-[#1C1F26] text-[#CBD5E1] border-[#374151]'
             }`}
-            title={soundEnabled ? 'Buzzer Sound: ON' : 'Buzzer Sound: MUTED'}
+            title="Toggle Tactical Siren"
           >
-            <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${soundEnabled ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
             {soundEnabled ? <Volume2 className="w-4 h-4 text-[#F59E0B]" /> : <VolumeX className="w-4 h-4" />}
           </button>
 
+          {/* Play / Pause */}
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className={`px-3.5 py-1.5 font-bold text-xs tracking-wider rounded-none transition-all flex items-center gap-2 cursor-pointer border ${
+            className={`px-3 py-1.5 font-bold text-xs rounded-none transition-all flex items-center gap-1.5 cursor-pointer border ${
               isPlaying
-                ? 'bg-[#252A34] text-[#FFFFFF] border-[#10B981] shadow-[inset_0_0_8px_rgba(16,185,129,0.15)]'
-                : 'bg-[#1A1D24] hover:bg-[#252A34] text-[#FFFFFF] border-[#374151] hover:border-[#F59E0B]'
+                ? 'bg-[#252A34] text-[#FFFFFF] border-[#10B981]'
+                : 'bg-[#1C1F26] hover:bg-[#252A34] text-[#FFFFFF] border-[#374151]'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${isPlaying ? 'bg-[#10B981] shadow-[0_0_6px_rgba(16,185,129,0.9)]' : 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]'}`} />
-            {isPlaying ? <Pause className="w-3.5 h-3.5 text-[#10B981]" /> : <Play className="w-3.5 h-3.5 text-[#F59E0B]" />}
-            <span>{isPlaying ? 'PAUSE ROUTE' : 'PLAY MOTION'}</span>
+            <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${isPlaying ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`} />
+            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
           </button>
 
+          {/* Reset */}
           <button
             onClick={() => {
-              setIsPlaying(false);
-              setProgress(0);
+              progressRef.current = 0;
+              setProgressState(0);
               setActiveCamIndex(0);
-              setCapturedCams({ 0: true, 1: false, 2: false, 3: false });
-              setClonedAlertActive(false);
             }}
-            className="p-2 bg-[#1A1D24] hover:bg-[#252A34] text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#374151] hover:border-[#4B5563] rounded-none cursor-pointer transition-all"
-            title="Reset Simulation"
+            className="p-1.5 bg-[#1C1F26] hover:bg-[#252A34] text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#374151] cursor-pointer"
+            title="Reset to Gantry 01"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
 
+          {/* Trigger Cloned Anomaly */}
           <button
-            onClick={handleTriggerClonedAlert}
-            className={`px-3.5 py-1.5 rounded-none font-bold text-xs tracking-wider transition-all flex items-center gap-2 cursor-pointer border ${
+            onClick={() => {
+              setClonedAlertActive(!clonedAlertActive);
+              playTacticalAlarmSound();
+            }}
+            className={`px-3 py-1.5 font-bold text-xs rounded-none border transition-all cursor-pointer flex items-center gap-1.5 ${
               clonedAlertActive
-                ? 'bg-[#252A34] text-[#FFFFFF] border-[#EF4444] shadow-[0_0_12px_rgba(239,68,68,0.4)]'
-                : 'bg-[#1A1D24] text-[#EF4444] border-[#EF4444]/60 hover:bg-[#252A34] hover:border-[#EF4444]'
+                ? 'bg-[#261618] text-[#EF4444] border-[#EF4444] shadow-[0_0_12px_rgba(239,68,68,0.4)]'
+                : 'bg-[#1C1F26] text-[#CBD5E1] border-[#374151] hover:text-[#EF4444]'
             }`}
           >
-            <span className="w-1.5 h-1.5 rounded-none shrink-0 bg-[#EF4444] shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse" />
             <AlertTriangle className="w-3.5 h-3.5 text-[#EF4444]" />
-            <span>TRIGGER CLONED ALERT</span>
+            <span>{clonedAlertActive ? 'CLONED ALERT ACTIVE' : 'TRIGGER CLONED ANOMALY'}</span>
           </button>
         </div>
       </div>
 
-      {/* Cloned Anomaly Alert Banner */}
+      {/* DEFCON 1 Cloned Registration Banner */}
       {clonedAlertActive && (
-        <div className="p-3.5 bg-[#EF4444] border border-[#EF4444] text-[#FFFFFF] rounded-none flex flex-col md:flex-row items-center justify-between gap-3 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+        <div className="p-3 bg-[#EF4444] text-[#FFFFFF] border border-[#EF4444] flex flex-col md:flex-row items-center justify-between gap-3 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-none bg-[#0A0B0E] border border-[#FFFFFF] flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 bg-[#0A0B0E] border border-[#FFFFFF] flex items-center justify-center shrink-0">
               <ShieldAlert className="w-5 h-5 text-[#EF4444]" />
             </div>
             <div>
-              <div className="font-['Orbitron'] font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+              <div className="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
                 DEFCON 1: PHYSICAL VELOCITY BREACH // CLONED REGISTRATION DETECTED
               </div>
-              <div className="text-xs text-[#FFFFFF] mt-0.5">
-                Target plate <strong className="underline">{activePlate}</strong> logged at <span className="font-bold">CAM_01 (DND)</span> and simultaneously sighted at <span className="font-bold">CAM_09 (Rohini)</span> within 42 seconds.
+              <div className="text-xs mt-0.5">
+                Chassis A (Gunmetal SUV) & Chassis B (Silver Sedan) BOTH displaying plate <strong className="underline">{activePlate}</strong> simultaneously.
               </div>
-              <div className="text-[11px] text-[#FFFFFF]/90 mt-0.5">
-                • Spatial Distance: <strong>24.6 km</strong> | Required Speed: <strong className="underline">2,108 km/h (Mach 1.7 - IMPOSSIBLE)</strong>
+              <div className="text-[11px] opacity-90 mt-0.5">
+                • Spatial Separation: <strong>24.6 km</strong> | Implied Transit Velocity: <strong className="underline">2,108 km/h (PHYSICS VIOLATION)</strong>
               </div>
             </div>
           </div>
           <button
             onClick={() => setClonedAlertActive(false)}
-            className="px-3 py-1.5 bg-[#1C1F26] hover:bg-[#252A34] text-[#FFFFFF] border border-[#EF4444] font-mono text-xs font-bold rounded-none uppercase tracking-wider shrink-0 cursor-pointer transition-all flex items-center gap-1.5 shadow-[0_0_8px_rgba(239,68,68,0.3)]"
+            className="px-3 py-1.5 bg-[#1C1F26] hover:bg-[#252A34] text-[#FFFFFF] border border-[#EF4444] text-xs font-bold shrink-0 cursor-pointer"
           >
-            <span className="w-1.5 h-1.5 bg-[#EF4444] rounded-none shadow-[0_0_6px_rgba(239,68,68,0.9)]" />
-            DISMISS ALERT
+            DISMISS
           </button>
         </div>
       )}
 
-      {/* 3D Highway Stage */}
-      <div className="relative w-full h-[400px] bg-[#0A0B0E] border border-[#262933] overflow-hidden select-none">
+      {/* 3D Viewport Stage */}
+      <div className="relative w-full h-[440px] bg-[#0A0B0E] border border-[#262933] overflow-hidden select-none">
         <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
-        {/* View Presets Floating Toolbar */}
-        <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-[#13151B]/95 border border-[#262933] p-1.5 backdrop-blur-sm text-xs shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+        {/* View Preset Switcher */}
+        <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-[#13151B]/95 border border-[#262933] p-1 text-[10px]">
           <button
-            onClick={() => setPreset('iso')}
-            className={`px-2 py-1 text-[10px] border rounded-none cursor-pointer transition-all flex items-center gap-1.5 ${
-              cameraView === 'iso'
-                ? 'bg-[#252A34] text-[#FFFFFF] font-bold border-[#F59E0B] shadow-[inset_0_0_8px_rgba(245,158,11,0.15)]'
-                : 'bg-[#1A1D24] text-[#CBD5E1] border-[#374151] hover:text-[#FFFFFF] hover:bg-[#252A34]'
+            onClick={() => setPreset('free')}
+            className={`px-2 py-1 border cursor-pointer transition-all flex items-center gap-1 ${
+              cameraView === 'free'
+                ? 'bg-[#252A34] text-[#FFFFFF] font-bold border-[#F59E0B]'
+                : 'bg-[#1C1F26] text-[#CBD5E1] border-[#374151]'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${cameraView === 'iso' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
-            3D ISOMETRIC
+            <Move3d className="w-3 h-3 text-[#F59E0B]" />
+            FREE 360° ORBIT
           </button>
           <button
-            onClick={() => setPreset('chase')}
-            className={`px-2 py-1 text-[10px] border rounded-none cursor-pointer transition-all flex items-center gap-1.5 ${
-              cameraView === 'chase'
-                ? 'bg-[#252A34] text-[#FFFFFF] font-bold border-[#F59E0B] shadow-[inset_0_0_8px_rgba(245,158,11,0.15)]'
-                : 'bg-[#1A1D24] text-[#CBD5E1] border-[#374151] hover:text-[#FFFFFF] hover:bg-[#252A34]'
+            onClick={() => setPreset('chaseA')}
+            className={`px-2 py-1 border cursor-pointer transition-all flex items-center gap-1 ${
+              cameraView === 'chaseA'
+                ? 'bg-[#252A34] text-[#FFFFFF] font-bold border-[#F59E0B]'
+                : 'bg-[#1C1F26] text-[#CBD5E1] border-[#374151]'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${cameraView === 'chase' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
-            CHASE CAM
+            <Car className="w-3 h-3 text-[#10B981]" />
+            CHASE TARGET A
+          </button>
+          <button
+            onClick={() => setPreset('chaseB')}
+            className={`px-2 py-1 border cursor-pointer transition-all flex items-center gap-1 ${
+              cameraView === 'chaseB'
+                ? 'bg-[#252A34] text-[#FFFFFF] font-bold border-[#EF4444]'
+                : 'bg-[#1C1F26] text-[#CBD5E1] border-[#374151]'
+            }`}
+          >
+            <Car className="w-3 h-3 text-[#EF4444]" />
+            CHASE CLONE B
           </button>
           <button
             onClick={() => setPreset('gantry')}
-            className={`px-2 py-1 text-[10px] border rounded-none cursor-pointer transition-all flex items-center gap-1.5 ${
+            className={`px-2 py-1 border cursor-pointer transition-all flex items-center gap-1 ${
               cameraView === 'gantry'
-                ? 'bg-[#252A34] text-[#FFFFFF] font-bold border-[#F59E0B] shadow-[inset_0_0_8px_rgba(245,158,11,0.15)]'
-                : 'bg-[#1A1D24] text-[#CBD5E1] border-[#374151] hover:text-[#FFFFFF] hover:bg-[#252A34]'
+                ? 'bg-[#252A34] text-[#FFFFFF] font-bold border-[#F59E0B]'
+                : 'bg-[#1C1F26] text-[#CBD5E1] border-[#374151]'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${cameraView === 'gantry' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
+            <Camera className="w-3 h-3" />
             LOCK GANTRY
           </button>
           <button
             onClick={() => setPreset('overhead')}
-            className={`px-2 py-1 text-[10px] border rounded-none cursor-pointer transition-all flex items-center gap-1.5 ${
+            className={`px-2 py-1 border cursor-pointer transition-all flex items-center gap-1 ${
               cameraView === 'overhead'
-                ? 'bg-[#252A34] text-[#FFFFFF] font-bold border-[#F59E0B] shadow-[inset_0_0_8px_rgba(245,158,11,0.15)]'
-                : 'bg-[#1A1D24] text-[#CBD5E1] border-[#374151] hover:text-[#FFFFFF] hover:bg-[#252A34]'
+                ? 'bg-[#252A34] text-[#FFFFFF] font-bold border-[#F59E0B]'
+                : 'bg-[#1C1F26] text-[#CBD5E1] border-[#374151]'
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${cameraView === 'overhead' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
+            <Compass className="w-3 h-3" />
             OVERHEAD PLAN
           </button>
         </div>
 
-        {/* Live Passing Telemetry Card */}
-        <div className="absolute top-2 left-2 z-20 bg-[#13151B]/95 border border-[#262933] p-2.5 backdrop-blur-sm text-xs space-y-1 shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+        {/* Live Target Telemetry Overlay */}
+        <div className="absolute top-2 left-2 z-20 bg-[#13151B]/95 border border-[#262933] p-2.5 text-xs space-y-1">
           <div className="text-[10px] text-[#CBD5E1] uppercase flex items-center gap-1.5">
             <Crosshair className="w-3 h-3 text-[#10B981]" />
-            TRANSIT VEHICLE: <strong className="text-[#FFFFFF] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{activePlate}</strong>
+            <span>AUTHENTIC HSRP PLATE: <strong className="text-[#FFFFFF]">{activePlate}</strong></span>
           </div>
           <div className="text-[11px] text-[#CBD5E1]">
-            Approaching: <span className="text-[#FFFFFF] font-bold">{currentCam.name}</span>
+            Next Gantry: <span className="text-[#FFFFFF] font-bold">{currentCam.name}</span>
           </div>
           <div className="text-[11px] text-[#CBD5E1]">
-            Speed: <span className="text-[#10B981] font-bold">{currentCam.speed}</span> | Progress: <span className="text-[#FFFFFF] font-bold">{Math.round(progress)}%</span>
+            Segment Speed: <span className="text-[#10B981] font-bold">{currentCam.speed}</span> | Progress: <span className="text-[#FFFFFF] font-bold">{progressState}%</span>
           </div>
         </div>
 
+        {/* Cursor Coordinates Strip (Movable Cursor Movement) */}
+        <div className="absolute bottom-12 left-2 z-20 bg-[#13151B]/90 border border-[#262933] px-2 py-1 text-[10px] text-[#CBD5E1] flex items-center gap-2">
+          <MousePointer className="w-3 h-3 text-[#F59E0B]" />
+          <span>3D TACTICAL CURSOR:</span>
+          <span className="text-[#FFFFFF] font-bold">X: {cursorCoords.x}m, Z: {cursorCoords.z}m</span>
+          <span className="text-[#374151]">|</span>
+          <span className="text-[#10B981]">DRAG MOUSE TO ORBIT 360°</span>
+        </div>
+
         {/* Timeline Scrubber */}
-        <div className="absolute bottom-2 left-2 right-2 z-20 bg-[#13151B]/95 border border-[#262933] p-2 flex items-center gap-3 backdrop-blur-sm text-xs shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+        <div className="absolute bottom-2 left-2 right-2 z-20 bg-[#13151B]/95 border border-[#262933] p-2 flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5 text-[#FFFFFF] font-bold text-[11px]">
             <Clock className="w-3.5 h-3.5 text-[#CBD5E1]" />
-            <span>TIMELINE:</span>
+            <span>PROGRESS:</span>
           </div>
           <input
             type="range"
             min="0"
             max="100"
-            value={progress}
-            onChange={(e) => setProgress(parseFloat(e.target.value))}
+            value={progressState}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              progressRef.current = val / 100.0;
+              setProgressState(val);
+            }}
             className="flex-1 h-1.5 bg-[#0A0B0E] rounded-none appearance-none cursor-pointer accent-[#F59E0B] border border-[#262933]"
           />
           <span className="text-[11px] font-bold text-[#FFFFFF]">
-            {currentCam.time} IST
+            {progressState}% // {currentCam.time}
           </span>
           <div className="flex items-center gap-1 border-l border-[#262933] pl-2">
             {[1.0, 2.0].map(s => (
               <button
                 key={s}
                 onClick={() => setSimSpeed(s)}
-                className={`px-2 py-0.5 text-[9px] border cursor-pointer transition-all ${
+                className={`px-2 py-0.5 text-[9px] border cursor-pointer ${
                   simSpeed === s 
                     ? 'bg-[#252A34] text-[#FFFFFF] font-bold border-[#F59E0B]' 
-                    : 'bg-[#1A1D24] text-[#CBD5E1] border-[#374151] hover:text-[#FFFFFF] hover:bg-[#252A34]'
+                    : 'bg-[#1C1F26] text-[#CBD5E1] border-[#374151]'
                 }`}
               >
                 {s}x
@@ -838,90 +996,31 @@ export default function Route3DSimulator({ activePlate = 'RJ 14 CA 0639' }) {
         </div>
       </div>
 
-      {/* 4 LIVE CCTV CAMERA FEED PIP MONITORS (VEHICLE PASSING SEQUENCE) */}
+      {/* 4 Gantry Checkpoint Status Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         {checkpoints.map((cp, idx) => {
           const isCurrent = activeCamIndex === idx;
-          const isCaptured = capturedCams[idx];
 
           return (
-            <div 
+            <div
               key={cp.id}
-              className={`p-2 border rounded-none font-mono text-xs transition-all relative overflow-hidden ${
+              className={`p-2 border rounded-none text-xs transition-all ${
                 isCurrent
-                  ? 'bg-[#1A1C23] border-[#E2E8F0] ring-1 ring-[#FFFFFF]/20 shadow-[0_0_12px_rgba(0,0,0,0.5)]'
-                  : isCaptured
-                  ? 'bg-[#13151B] border-[#10B981]/50 opacity-90'
-                  : 'bg-[#0A0B0E] border-[#262933] opacity-60'
+                  ? 'bg-[#1A1D24] border-[#F59E0B] shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                  : 'bg-[#13151B] border-[#262933]'
               }`}
             >
-              {/* Camera Header */}
-              <div className="flex items-center justify-between border-b border-[#262933] pb-1 mb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-2 h-2 rounded-full ${isCurrent ? 'bg-[#FFFFFF] animate-ping' : isCaptured ? 'bg-[#10B981]' : 'bg-[#CBD5E1]'}`} />
-                  <span className="text-[10px] font-bold text-[#FFFFFF]">{cp.id} FEED</span>
-                </div>
-                <span className={`text-[9px] px-1 py-0.2 font-bold ${
-                  isCurrent 
-                    ? 'bg-[#262933] text-white border border-[#4B5563] animate-pulse' 
-                    : isCaptured 
-                    ? 'bg-[#10B981]/15 text-[#10B981]' 
-                    : 'text-[#CBD5E1]'
-                }`}>
-                  {isCurrent ? '● IN FRAME' : isCaptured ? 'ACQUIRED' : 'ARMED'}
+              <div className="flex items-center justify-between border-b border-[#262933] pb-1 mb-1">
+                <span className="text-[10px] font-bold text-[#FFFFFF]">{cp.id}</span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 ${isCurrent ? 'bg-[#F59E0B] text-[#0A0B0E]' : 'text-[#10B981]'}`}>
+                  {isCurrent ? 'INTERCEPT' : 'ONLINE'}
                 </span>
               </div>
-
-              {/* Simulated Camera Video Screen */}
-              <div className="relative w-full h-24 bg-[#050608] border border-[#262933] flex flex-col justify-between p-1.5 overflow-hidden">
-                {/* Camera HUD Grid */}
-                <div className="absolute inset-0 pointer-events-none opacity-20">
-                  <div className="w-full h-full border border-dashed border-[#4B5563]" />
-                  <div className="absolute top-1/2 left-0 right-0 h-px bg-[#4B5563]/40" />
-                  <div className="absolute top-0 bottom-0 left-1/2 w-px bg-[#4B5563]/40" />
-                </div>
-
-                {/* Top Overlay */}
-                <div className="flex justify-between items-center text-[9px] text-[#CBD5E1] z-10">
-                  <span>REC // {cp.time}</span>
-                  <span className="text-[#10B981] font-bold">{cp.speed}</span>
-                </div>
-
-                {/* Simulated Vehicle Passing Frame */}
-                <div className="flex items-center justify-center my-auto z-10">
-                  {isCurrent ? (
-                    <div className="text-center animate-pulse">
-                      <div className="inline-block px-2 py-0.5 bg-[#0A0B0E]/90 border border-[#E2E8F0] text-[#FFFFFF] text-[11px] font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                        [{activePlate}]
-                      </div>
-                      <div className="text-[8px] text-[#10B981] mt-0.5">OCR CONF: {cp.conf}%</div>
-                    </div>
-                  ) : isCaptured ? (
-                    <div className="text-center opacity-75">
-                      <div className="text-[9px] text-[#10B981] flex items-center justify-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-[#10B981]" />
-                        PLATE VERIFIED
-                      </div>
-                      <div className="text-[8px] text-[#CBD5E1]">{activePlate}</div>
-                    </div>
-                  ) : (
-                    <div className="text-[9px] text-[#CBD5E1]/60 uppercase tracking-wider">
-                      WAITING VEHICLE...
-                    </div>
-                  )}
-                </div>
-
-                {/* Bottom Overlay */}
-                <div className="flex justify-between items-center text-[8px] text-[#CBD5E1] z-10">
-                  <span className="truncate max-w-[120px]">{cp.location.split(',')[0]}</span>
-                  <span className="text-[#CBD5E1]">{cp.lane.split(' ')[0]}</span>
-                </div>
-              </div>
-
-              {/* Node Metrics Footer */}
-              <div className="mt-1.5 flex items-center justify-between text-[10px] text-[#CBD5E1]">
-                <span>Speed: <strong className="text-[#10B981]">{cp.speed}</strong></span>
-                <span>Conf: <strong className="text-[#FFFFFF]">{cp.conf}%</strong></span>
+              <div className="text-xs font-bold text-[#FFFFFF] truncate">{cp.name}</div>
+              <div className="text-[10px] text-[#CBD5E1] mt-0.5">{cp.location}</div>
+              <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                <span className="text-[#CBD5E1]">Speed: <strong className="text-[#10B981]">{cp.speed}</strong></span>
+                <span className="text-[#CBD5E1]">Conf: <strong className="text-[#FFFFFF]">{cp.conf}%</strong></span>
               </div>
             </div>
           );
