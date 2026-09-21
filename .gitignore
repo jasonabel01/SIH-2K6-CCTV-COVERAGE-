@@ -27,3 +27,8 @@ found_plate.jpg
 # Environment Variables
 .env
 .env.local
+
+# Raw large videos in workspace root
+/Feed2.mp4
+/feed3.mp4
+
