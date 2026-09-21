@@ -167,10 +167,88 @@ export default function App() {
       threat: 'NOMINAL',
       lastSeen: 'CAM_02 (Flyover Lane 3)',
       is2W: false
+    },
+    'MH 01 CR 2440': {
+      id: 'MH 01 CR 2440',
+      state: 'Maharashtra / Mumbai (MH)',
+      category: 'Commercial Yellow-Top Cab (Mumbai Interstate)',
+      conf: 98.2,
+      chars: ['M', 'H', '0', '1', 'C', 'R', '2', '4', '4', '0'],
+      speed: '52 km/h',
+      heading: '168° SSE',
+      rto: 'Tardeo RTO, South Mumbai',
+      threat: 'NOMINAL',
+      lastSeen: 'CAM_DEL_ASHRAM_07 (Underpass Portal)',
+      is2W: false
+    },
+    'DL 1ZC 5044': {
+      id: 'DL 1ZC 5044',
+      state: 'Delhi (DL)',
+      category: 'Passenger 7-Seater (White Maruti Ertiga)',
+      conf: 98.6,
+      chars: ['D', 'L', '1', 'Z', 'C', '5', '0', '4', '4'],
+      speed: '64 km/h',
+      heading: '224° SW',
+      rto: 'Palam Regional Transport Office',
+      threat: 'NOMINAL',
+      lastSeen: 'CAM_DEL_IGI_T3_29 (Departure Ramp)',
+      is2W: false
+    },
+    'DL 08 CQ 4192': {
+      id: 'DL 08 CQ 4192',
+      state: 'Delhi (DL)',
+      category: 'Commercial Delivery Courier Van',
+      conf: 97.4,
+      chars: ['D', 'L', '0', '8', 'C', 'Q', '4', '1', '9', '2'],
+      speed: '48 km/h',
+      heading: '090° E',
+      rto: 'Wazirpur North-West Delhi',
+      threat: 'NOMINAL',
+      lastSeen: 'CAM_DEL_CP_OUTER_19 (Barakhamba Radial)',
+      is2W: false
+    },
+    'MH 12 NP 6480': {
+      id: 'MH 12 NP 6480',
+      state: 'Maharashtra / Pune (MH)',
+      category: 'Multi-Utility Vehicle (Silver Innova SUV)',
+      conf: 96.4,
+      chars: ['M', 'H', '1', '2', 'N', 'P', '6', '4', '8', '0'],
+      speed: '58 km/h',
+      heading: '172° S',
+      rto: 'Pune Regional Transport Office',
+      threat: 'NOMINAL',
+      lastSeen: 'CAM_DEL_ASHRAM_07 (Lane 2)',
+      is2W: false
+    },
+    'DL 12CT 2309': {
+      id: 'DL 12CT 2309',
+      state: 'Delhi (DL)',
+      category: 'Compact Passenger Hatchback',
+      conf: 96.1,
+      chars: ['D', 'L', '1', '2', 'C', 'T', '2', '3', '0', '9'],
+      speed: '55 km/h',
+      heading: '220° SW',
+      rto: 'Vasant Vihar South-West Delhi',
+      threat: 'NOMINAL',
+      lastSeen: 'CAM_DEL_IGI_T3_29 (Lane 2)',
+      is2W: false
+    },
+    'HR 26 DQ 5521': {
+      id: 'HR 26 DQ 5521',
+      state: 'Haryana / Gurugram (HR)',
+      category: 'CLONED ANOMALY (DEFCON 1 Breach)',
+      conf: 98.7,
+      chars: ['H', 'R', '2', '6', 'D', 'Q', '5', '5', '2', '1'],
+      speed: '2108 km/h (Anomaly)',
+      heading: 'Simultaneous DND & IGI',
+      rto: 'Gurugram North RTO Office',
+      threat: 'DEFCON 1 CRITICAL',
+      lastSeen: 'CAM_DEL_DND_01 & CAM_DEL_IGI_T3_29',
+      is2W: false
     }
   };
 
-  const currentPlate = plateDatabase[trackedPlate] || plateDatabase['HP 72C 7555'];
+  const currentPlate = plateDatabase[trackedPlate] || plateDatabase['RJ 14 CA 0639'];
 
   // Handle Target Locking from any component
   const handleSelectPlateForTracking = (plate) => {
