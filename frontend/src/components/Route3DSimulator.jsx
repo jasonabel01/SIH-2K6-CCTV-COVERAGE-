@@ -22,7 +22,12 @@ import {
   Camera,
   Car,
   Move3d,
-  MousePointer
+  MousePointer,
+  X,
+  Shield,
+  ZoomIn,
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 
 /**
@@ -318,6 +323,8 @@ export default function Route3DSimulator({
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [cursorCoords, setCursorCoords] = useState({ x: 0, z: 0 });
   const [hoveredObject, setHoveredObject] = useState(null);
+  const [pcrDispatched, setPcrDispatched] = useState(false);
+  const [evidenceZoomImage, setEvidenceZoomImage] = useState(null);
 
   // Synchronize with isAnomalyActive prop if controlled from parent
   useEffect(() => {
@@ -850,8 +857,10 @@ export default function Route3DSimulator({
     if (!cameraRef.current || !controlsRef.current) return;
     const cam = cameraRef.current;
     const ctrl = controlsRef.current;
-
     switch (preset) {
+      case 'evidence':
+        // Forensic dual capture view active
+        break;
       case 'free':
         cam.position.set(0, 85, 130);
         ctrl.target.set(0, 4, 0);
@@ -988,6 +997,15 @@ export default function Route3DSimulator({
               <div className="text-[11px] opacity-90 mt-0.5">
                 • Spatial Separation: <strong>24.6 km</strong> | Implied Transit Velocity: <strong className="underline">2,108 km/h (PHYSICS VIOLATION)</strong>
               </div>
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={() => setPreset('evidence')}
+                  className="px-2.5 py-1 bg-[#0A0B0E] hover:bg-[#1A1D24] text-[#FFFFFF] border border-[#FFFFFF]/80 text-[10px] font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                >
+                  <Camera className="w-3.5 h-3.5 text-[#EF4444]" />
+                  <span>VIEW DUAL-LOCATION FEED EVIDENCE (2 NODES)</span>
+                </button>
+              </div>
             </div>
           </div>
           <button
@@ -1066,6 +1084,22 @@ export default function Route3DSimulator({
             <Compass className="w-3 h-3" />
             OVERHEAD PLAN
           </button>
+
+          {/* Dual Sighting Evidence Option (Active when Cloned Anomaly is triggered) */}
+          {clonedAlertActive && (
+            <button
+              onClick={() => setPreset(cameraView === 'evidence' ? 'free' : 'evidence')}
+              className={`px-2.5 py-1 border cursor-pointer transition-all flex items-center gap-1.5 ${
+                cameraView === 'evidence'
+                  ? 'bg-[#261618] text-[#EF4444] font-bold border-[#EF4444] shadow-[0_0_12px_rgba(239,68,68,0.7)] ring-1 ring-[#EF4444]'
+                  : 'bg-[#1C1F26] text-[#EF4444] border-[#EF4444]/60 hover:bg-[#261618] animate-pulse'
+              }`}
+              title="Inspect optical evidence captured from two camera feeds with identical cloned plate"
+            >
+              <Camera className="w-3.5 h-3.5 text-[#EF4444]" />
+              <span className="font-black">DUAL SIGHTING EVIDENCE</span>
+            </button>
+          )}
         </div>
 
         {/* Live Target Telemetry Overlay */}
@@ -1128,6 +1162,236 @@ export default function Route3DSimulator({
             ))}
           </div>
         </div>
+
+        {/* ================= DUAL SIGHTING EVIDENCE OVERLAY ================= */}
+        {cameraView === 'evidence' && (
+          <div className="absolute inset-0 z-30 bg-[#0A0B0E]/95 backdrop-blur-md p-3 overflow-y-auto font-mono flex flex-col justify-between border border-[#EF4444]/70 shadow-[inset_0_0_24px_rgba(239,68,68,0.25)]">
+            {/* Top Evidence Header */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#262933]">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-[#261618] border border-[#EF4444] flex items-center justify-center">
+                  <ShieldAlert className="w-3.5 h-3.5 text-[#EF4444]" />
+                </div>
+                <div>
+                  <div className="text-[10px] text-[#EF4444] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <span>DEFCON 1 FORENSIC AUDIT</span>
+                    <span className="text-[#374151]">•</span>
+                    <span>SIMULTANEOUS 2-NODE ARTERIAL CAPTURE</span>
+                  </div>
+                  <div className="text-xs font-bold text-[#FFFFFF]">
+                    TARGET REGISTRATION: <span className="text-[#EF4444] underline font-black">{activePlate}</span> (Haryana / Gurugram Commercial RTO)
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPreset('chaseB')}
+                  className="px-2.5 py-1 bg-[#1C1F26] hover:bg-[#252A34] text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#374151] text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Car className="w-3 h-3 text-[#EF4444]" />
+                  CHASE CLONE B IN 3D
+                </button>
+                <button
+                  onClick={() => setPreset('free')}
+                  className="px-2.5 py-1 bg-[#261618] hover:bg-[#341C20] text-[#FFFFFF] border border-[#EF4444] text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <X className="w-3 h-3 text-[#EF4444]" />
+                  RETURN TO 3D VIEW
+                </button>
+              </div>
+            </div>
+
+            {/* Side-by-Side Dual Location Feed Capture Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 my-2">
+              {/* SIGHTING LOCATION 1: FEED 01 (DND TOLL PLAZA) */}
+              <div className="bg-[#13151B] border border-[#262933] p-2 flex flex-col justify-between">
+                <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-[#262933] text-[10px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-[#EF4444] animate-pulse" />
+                    <span className="text-[#FFFFFF] font-bold">FEED 01: CAM_DEL_DND_01</span>
+                  </div>
+                  <span className="bg-[#261618] text-[#EF4444] px-1.5 py-0.5 border border-[#EF4444]/40 font-bold text-[9px]">
+                    SIGHTING 1 // 14:02:15
+                  </span>
+                </div>
+
+                {/* Captured Image with ANPR Target Reticle Overlay */}
+                <div 
+                  onClick={() => setEvidenceZoomImage('/evidence/dnd_toll_hr26_capture.jpg')}
+                  className="relative aspect-video bg-[#000000] border border-[#374151] overflow-hidden group cursor-pointer"
+                >
+                  <img
+                    src="/evidence/dnd_toll_hr26_capture.jpg"
+                    alt="DND Toll Plaza Captured Feed"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute top-1.5 left-1.5 bg-[#0A0B0E]/90 px-1.5 py-0.5 text-[8.5px] text-[#CBD5E1] border border-[#262933]">
+                    OPTICAL 4K HIGHWAY PTZ // LANE 3
+                  </div>
+                  <div className="absolute top-1.5 right-1.5 bg-[#261618]/90 text-[#EF4444] px-1.5 py-0.5 text-[8.5px] font-bold border border-[#EF4444]/60">
+                    75 km/h • FAST LANE
+                  </div>
+                  <div className="absolute inset-0 bg-[#000000]/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <span className="bg-[#0E1015]/90 text-[#FFFFFF] px-2 py-1 text-[9px] font-bold border border-[#EF4444] flex items-center gap-1">
+                      <ZoomIn className="w-3 h-3 text-[#EF4444]" /> CLICK TO ENLARGE
+                    </span>
+                  </div>
+                </div>
+
+                {/* Sighting Metadata & HSRP Plate OCR */}
+                <div className="mt-2 space-y-1 text-[10px]">
+                  <div className="flex items-center justify-between text-[#CBD5E1]">
+                    <span className="text-[#F59E0B] font-bold">LOCATION:</span>
+                    <span className="truncate text-[9.5px]">DND Expressway Km 2.4, Inbound Toll Plaza</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#CBD5E1]">VEHICLE CHASSIS:</span>
+                    <span className="text-[#FFFFFF] font-bold">White Sedan • Chassis A (Target)</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-[#262933]/80">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-[#94A3B8]">HSRP OCR:</span>
+                      <img
+                        src="/evidence/hr26_plate_crop.jpg"
+                        alt="OCR Crop"
+                        className="h-5 border border-[#374151]"
+                      />
+                    </div>
+                    <span className="text-[#10B981] font-bold text-[9px]">98.4% MATCH</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SIGHTING LOCATION 2: FEED 04 (IGI AIRPORT T3) */}
+              <div className="bg-[#13151B] border border-[#262933] p-2 flex flex-col justify-between">
+                <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-[#262933] text-[10px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-[#EF4444] animate-pulse" />
+                    <span className="text-[#FFFFFF] font-bold">FEED 04: CAM_DEL_IGI_T3_29</span>
+                  </div>
+                  <span className="bg-[#261618] text-[#EF4444] px-1.5 py-0.5 border border-[#EF4444]/40 font-bold text-[9px]">
+                    SIGHTING 2 // 14:02:57
+                  </span>
+                </div>
+
+                {/* Captured Image with ANPR Target Reticle Overlay */}
+                <div 
+                  onClick={() => setEvidenceZoomImage('/evidence/igi_airport_hr26_capture.jpg')}
+                  className="relative aspect-video bg-[#000000] border border-[#374151] overflow-hidden group cursor-pointer"
+                >
+                  <img
+                    src="/evidence/igi_airport_hr26_capture.jpg"
+                    alt="IGI Airport Captured Feed"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute top-1.5 left-1.5 bg-[#0A0B0E]/90 px-1.5 py-0.5 text-[8.5px] text-[#CBD5E1] border border-[#262933]">
+                    ELEVATED VIADUCT OPTICAL PTZ
+                  </div>
+                  <div className="absolute top-1.5 right-1.5 bg-[#261618]/90 text-[#EF4444] px-1.5 py-0.5 text-[8.5px] font-bold border border-[#EF4444]/60">
+                    80 km/h • DEPARTURE
+                  </div>
+                  <div className="absolute inset-0 bg-[#000000]/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <span className="bg-[#0E1015]/90 text-[#FFFFFF] px-2 py-1 text-[9px] font-bold border border-[#EF4444] flex items-center gap-1">
+                      <ZoomIn className="w-3 h-3 text-[#EF4444]" /> CLICK TO ENLARGE
+                    </span>
+                  </div>
+                </div>
+
+                {/* Sighting Metadata & HSRP Plate OCR */}
+                <div className="mt-2 space-y-1 text-[10px]">
+                  <div className="flex items-center justify-between text-[#CBD5E1]">
+                    <span className="text-[#10B981] font-bold">LOCATION:</span>
+                    <span className="truncate text-[9.5px]">IGI Airport Terminal 3 Elevated Viaduct</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#CBD5E1]">VEHICLE CHASSIS:</span>
+                    <span className="text-[#FFFFFF] font-bold">White Ertiga • Chassis B (Clone)</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-[#262933]/80">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-[#94A3B8]">HSRP OCR:</span>
+                      <img
+                        src="/evidence/hr26_plate_crop.jpg"
+                        alt="OCR Crop"
+                        className="h-5 border border-[#374151]"
+                      />
+                    </div>
+                    <span className="text-[#10B981] font-bold text-[9px]">97.9% MATCH</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Forensic Physical Breach Analysis & Actions */}
+            <div className="bg-[#0E1015] border border-[#262933] p-2.5 flex flex-wrap items-center justify-between gap-3 text-[10px]">
+              <div className="flex flex-wrap items-center gap-4 text-[#CBD5E1]">
+                <div>
+                  <span className="text-[#94A3B8]">SPATIAL SEPARATION:</span>{' '}
+                  <strong className="text-[#FFFFFF]">24.6 km</strong>
+                </div>
+                <div className="text-[#374151]">•</div>
+                <div>
+                  <span className="text-[#94A3B8]">TIME DELTA:</span>{' '}
+                  <strong className="text-[#EF4444]">42.0 seconds</strong>
+                </div>
+                <div className="text-[#374151]">•</div>
+                <div>
+                  <span className="text-[#94A3B8]">CALCULATED VELOCITY:</span>{' '}
+                  <strong className="text-[#EF4444] underline font-bold">2,108 km/h</strong>
+                </div>
+                <div className="text-[#374151]">•</div>
+                <div className="text-[#EF4444] font-bold flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  PHYSICAL LAW BREACH CONFIRMED
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPcrDispatched(true)}
+                  className={`px-2.5 py-1 text-[10px] font-bold border cursor-pointer transition-all flex items-center gap-1 ${
+                    pcrDispatched
+                      ? 'bg-[#10B981]/20 text-[#10B981] border-[#10B981]'
+                      : 'bg-[#EF4444] hover:bg-[#DC2626] text-[#FFFFFF] border-[#EF4444]'
+                  }`}
+                >
+                  <Shield className="w-3 h-3" />
+                  {pcrDispatched ? 'PCR PATROL DISPATCHED (ETA 2.4 MIN)' : 'DISPATCH PCR PATROL UNIT 14'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* High-Resolution Forensic Inspection Lightbox Modal */}
+        {evidenceZoomImage && (
+          <div className="fixed inset-0 z-50 bg-[#000000]/90 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="relative max-w-4xl w-full bg-[#13151B] border border-[#EF4444] p-3 shadow-2xl">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#262933]">
+                <div className="text-xs font-bold text-[#FFFFFF] flex items-center gap-2">
+                  <Camera className="w-3.5 h-3.5 text-[#EF4444]" />
+                  <span>FORENSIC HIGH-RESOLUTION SIGHTING CAPTURE // PLATE: {activePlate}</span>
+                </div>
+                <button
+                  onClick={() => setEvidenceZoomImage(null)}
+                  className="p-1 bg-[#1C1F26] hover:bg-[#252A34] text-[#FFFFFF] border border-[#374151] cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <img
+                src={evidenceZoomImage}
+                alt="Enlarged Evidence"
+                className="w-full max-h-[70vh] object-contain border border-[#262933]"
+              />
+              <div className="mt-2 text-[10px] text-[#CBD5E1] flex items-center justify-between">
+                <span>C4ISR SECURE DIGITAL EVIDENCE CHAIN • SHA-256 HASH VERIFIED</span>
+                <span className="text-[#10B981] font-bold">DPDP ACT 2023 COMPLIANT RECORD</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 4 Gantry Checkpoint Status Cards */}
