@@ -32,7 +32,7 @@ import AnprTargetReticle from './AnprTargetReticle';
  *      * Strict temporal gating: boxes disappear completely when vehicle exits frame (ZERO ghost boxes).
  *      * DEFCON 1 Cloned Plate tracking with alert HUD and audio siren.
  *  - Seamless synchronization with bottom Mission Deck (Play/Pause, Slow-Mo, Scrubbing).
- *  - Single-feed forensic magnification modal.
+ *  - Single-feed forensic magnification modal that KEEPS all 4 feeds permanently mounted without blanking.
  *  - Defense-grade Charcoal & Tactical Amber MFD aesthetics (Strictly no blue).
  */
 
@@ -135,18 +135,29 @@ export default function TacticalCameraWall({
     };
   }, [streamSource, activeStreamIndex]);
 
-  // Initialize feeds 2, 3, 4 with local tactical footage
+  // Robust initialization and zoom-restore keeper for all 4 feeds
   useEffect(() => {
-    const setupFeed = (videoEl, srcPath) => {
-      if (!videoEl) return;
-      videoEl.src = srcPath;
-      videoEl.play().catch(() => {});
-    };
+    const feeds = [
+      { ref: videoRef1, defaultSrc: '/videos/traffic_demo.mp4', isHls: streamSource === 'PUBLIC_HLS' },
+      { ref: videoRef2, defaultSrc: '/videos/feed2.mp4', isHls: false },
+      { ref: videoRef3, defaultSrc: '/videos/feed3.mp4', isHls: false },
+      { ref: videoRef4, defaultSrc: '/videos/feed4.mp4', isHls: false }
+    ];
 
-    setupFeed(videoRef2.current, '/videos/feed2.mp4');
-    setupFeed(videoRef3.current, '/videos/feed3.mp4');
-    setupFeed(videoRef4.current, '/videos/feed4.mp4');
-  }, []);
+    feeds.forEach(({ ref, defaultSrc, isHls }) => {
+      const v = ref.current;
+      if (!v) return;
+      if (!isHls) {
+        const currentSrc = v.getAttribute('src') || v.src;
+        if (!currentSrc || currentSrc === '' || currentSrc.endsWith('/')) {
+          v.src = defaultSrc;
+        }
+      }
+      if (isPlaying && v.paused) {
+        v.play().catch(() => {});
+      }
+    });
+  }, [zoomedCamera, isPlaying, streamSource]);
 
   // Sync external Play/Pause controls
   useEffect(() => {
@@ -326,220 +337,236 @@ export default function TacticalCameraWall({
         </div>
       )}
 
-      {/* 2x2 Tactical Grid or Maximized Single Feed */}
-      <div className={`p-1.5 bg-[#0A0B0E] ${zoomedCamera ? 'grid grid-cols-1' : 'grid grid-cols-1 md:grid-cols-2 gap-1.5'}`}>
+      {/* 2x2 Tactical Grid or Maximized Single Feed: ALL FEEDS PERMANENTLY MOUNTED (NEVER DESTROYED) */}
+      <div className={`p-1.5 bg-[#0A0B0E] relative ${zoomedCamera ? 'grid grid-cols-1' : 'grid grid-cols-1 md:grid-cols-2 gap-1.5'}`}>
         
         {/* ================= FEED 01: DND TOLL PLAZA ================= */}
-        {(!zoomedCamera || zoomedCamera === 1) && (
-          <div className="relative bg-[#000000] border border-[#262933] overflow-hidden group aspect-video">
-            <video
-              ref={videoRef1}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover"
+        <div className={`relative bg-[#000000] border border-[#262933] overflow-hidden group aspect-video transition-all ${
+          zoomedCamera && zoomedCamera !== 1 ? 'hidden' : ''
+        } ${zoomedCamera === 1 ? 'col-span-full ring-2 ring-[#F59E0B]' : ''}`}>
+          <video
+            ref={videoRef1}
+            src={streamSource === 'TACTICAL_LOOP' ? '/videos/traffic_demo.mp4' : undefined}
+            autoPlay
+            loop
+            muted
+            playsInline
+            onCanPlay={(e) => { if (isPlaying && e.target.paused) e.target.play().catch(() => {}); }}
+            className="w-full h-full object-cover"
+          />
+
+          {/* Dynamic, Physically Synced ANPR Reticles for Feed 1 */}
+          {activeVehiclesFeed1.map((track) => (
+            <AnprTargetReticle
+              key={`${track.plate}-${track.isClone ? 'clone' : 'norm'}`}
+              track={track}
+              isSelected={activeTargetPlate === track.plate}
+              onClick={onSelectPlateForTracking}
             />
+          ))}
 
-            {/* Dynamic, Physically Synced ANPR Reticles for Feed 1 */}
-            {activeVehiclesFeed1.map((track) => (
-              <AnprTargetReticle
-                key={`${track.plate}-${track.isClone ? 'clone' : 'norm'}`}
-                track={track}
-                isSelected={activeTargetPlate === track.plate}
-                onClick={onSelectPlateForTracking}
-              />
-            ))}
-
-            {/* Top-Left Camera Label & Status */}
-            <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-[#0A0B0E]/90 border border-[#262933] px-2 py-0.5 text-[9px] z-10">
-              <span className="w-1.5 h-1.5 bg-[#10B981] animate-pulse" />
-              <span className="text-[#FFFFFF] font-bold">FEED 01:</span>
-              <span className="text-[#CBD5E1]">CAM_DEL_DND_01</span>
-            </div>
-
-            {/* Top-Right Maximize / Restore Button */}
-            <button
-              onClick={() => setZoomedCamera(zoomedCamera === 1 ? null : 1)}
-              className="absolute top-2 right-2 p-1 bg-[#0A0B0E]/80 hover:bg-[#252A34] text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#262933] cursor-pointer z-10"
-              title={zoomedCamera === 1 ? 'Restore 2x2 Grid' : 'Maximize Feed 01'}
-            >
-              {zoomedCamera === 1 ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-            </button>
-
-            {/* Prominent Mock Current Address Strip */}
-            <div className="absolute top-7 left-2 right-12 flex items-center gap-1.5 bg-[#0E1015]/95 border border-[#374151] px-2 py-0.5 text-[8.5px] text-[#FFFFFF] shadow-md z-10">
-              <MapPin className="w-3 h-3 text-[#F59E0B] shrink-0" />
-              <span className="text-[#F59E0B] font-bold">CURRENT ADDRESS:</span>
-              <span className="truncate text-[#CBD5E1]">DND Expressway Km 2.4, Inbound Toll Plaza, Mayur Vihar Link, New Delhi</span>
-            </div>
-
-            {/* Bottom Telemetry Strip */}
-            <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between text-[8px] text-[#CBD5E1] bg-[#0A0B0E]/85 px-2 py-0.5 border border-[#262933] z-10">
-              <div>OPTICAL: 4K HIGHWAY PTZ • 28.5832° N, 77.2985° E • LANE 3</div>
-              <div className="text-[#10B981] font-bold">{telemetryFps} FPS // 34ms</div>
-            </div>
+          {/* Top-Left Camera Label & Status */}
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-[#0A0B0E]/90 border border-[#262933] px-2 py-0.5 text-[9px] z-10">
+            <span className="w-1.5 h-1.5 bg-[#10B981] animate-pulse" />
+            <span className="text-[#FFFFFF] font-bold">FEED 01:</span>
+            <span className="text-[#CBD5E1]">CAM_DEL_DND_01</span>
           </div>
-        )}
+
+          {/* Top-Right Maximize / Restore Button */}
+          <button
+            onClick={() => setZoomedCamera(zoomedCamera === 1 ? null : 1)}
+            className={`absolute top-2 right-2 p-1 text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#262933] cursor-pointer z-10 ${
+              zoomedCamera === 1 ? 'bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B]' : 'bg-[#0A0B0E]/80 hover:bg-[#252A34]'
+            }`}
+            title={zoomedCamera === 1 ? 'Restore 2x2 Grid' : 'Maximize Feed 01'}
+          >
+            {zoomedCamera === 1 ? <Minimize2 className="w-3.5 h-3.5 text-[#F59E0B]" /> : <Maximize2 className="w-3 h-3" />}
+          </button>
+
+          {/* Prominent Mock Current Address Strip */}
+          <div className="absolute top-7 left-2 right-12 flex items-center gap-1.5 bg-[#0E1015]/95 border border-[#374151] px-2 py-0.5 text-[8.5px] text-[#FFFFFF] shadow-md z-10">
+            <MapPin className="w-3 h-3 text-[#F59E0B] shrink-0" />
+            <span className="text-[#F59E0B] font-bold">CURRENT ADDRESS:</span>
+            <span className="truncate text-[#CBD5E1]">DND Expressway Km 2.4, Inbound Toll Plaza, Mayur Vihar Link, New Delhi</span>
+          </div>
+
+          {/* Bottom Telemetry Strip */}
+          <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between text-[8px] text-[#CBD5E1] bg-[#0A0B0E]/85 px-2 py-0.5 border border-[#262933] z-10">
+            <div>OPTICAL: 4K HIGHWAY PTZ • 28.5832° N, 77.2985° E • LANE 3</div>
+            <div className="text-[#10B981] font-bold">{telemetryFps} FPS // 34ms</div>
+          </div>
+        </div>
 
         {/* ================= FEED 02: ASHRAM CHOWK UNDERPASS ================= */}
-        {(!zoomedCamera || zoomedCamera === 2) && (
-          <div className="relative bg-[#000000] border border-[#262933] overflow-hidden group aspect-video">
-            <video
-              ref={videoRef2}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover"
+        <div className={`relative bg-[#000000] border border-[#262933] overflow-hidden group aspect-video transition-all ${
+          zoomedCamera && zoomedCamera !== 2 ? 'hidden' : ''
+        } ${zoomedCamera === 2 ? 'col-span-full ring-2 ring-[#F59E0B]' : ''}`}>
+          <video
+            ref={videoRef2}
+            src="/videos/feed2.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            onCanPlay={(e) => { if (isPlaying && e.target.paused) e.target.play().catch(() => {}); }}
+            className="w-full h-full object-cover"
+          />
+
+          {/* Dynamic, Physically Synced ANPR Reticles for Feed 2 */}
+          {activeVehiclesFeed2.map((track) => (
+            <AnprTargetReticle
+              key={track.plate}
+              track={track}
+              isSelected={activeTargetPlate === track.plate}
+              onClick={onSelectPlateForTracking}
             />
+          ))}
 
-            {/* Dynamic, Physically Synced ANPR Reticles for Feed 2 */}
-            {activeVehiclesFeed2.map((track) => (
-              <AnprTargetReticle
-                key={track.plate}
-                track={track}
-                isSelected={activeTargetPlate === track.plate}
-                onClick={onSelectPlateForTracking}
-              />
-            ))}
-
-            {/* Top-Left Camera Label */}
-            <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-[#0A0B0E]/90 border border-[#262933] px-2 py-0.5 text-[9px] z-10">
-              <span className="w-1.5 h-1.5 bg-[#10B981]" />
-              <span className="text-[#FFFFFF] font-bold">FEED 02:</span>
-              <span className="text-[#CBD5E1]">CAM_DEL_ASHRAM_07</span>
-            </div>
-
-            {/* Top-Right Maximize / Restore Button */}
-            <button
-              onClick={() => setZoomedCamera(zoomedCamera === 2 ? null : 2)}
-              className="absolute top-2 right-2 p-1 bg-[#0A0B0E]/80 hover:bg-[#252A34] text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#262933] cursor-pointer z-10"
-              title={zoomedCamera === 2 ? 'Restore 2x2 Grid' : 'Maximize Feed 02'}
-            >
-              {zoomedCamera === 2 ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-            </button>
-
-            {/* Prominent Mock Current Address Strip */}
-            <div className="absolute top-7 left-2 right-12 flex items-center gap-1.5 bg-[#0E1015]/95 border border-[#374151] px-2 py-0.5 text-[8.5px] text-[#FFFFFF] shadow-md z-10">
-              <MapPin className="w-3 h-3 text-[#10B981] shrink-0" />
-              <span className="text-[#10B981] font-bold">CURRENT ADDRESS:</span>
-              <span className="truncate text-[#CBD5E1]">Ring Road & Mathura Road Intersection, Ashram Underpass Portal, South Delhi</span>
-            </div>
-
-            {/* Bottom Telemetry Strip */}
-            <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between text-[8px] text-[#CBD5E1] bg-[#0A0B0E]/85 px-2 py-0.5 border border-[#262933] z-10">
-              <div>SENSOR: 850nm IR NIGHT-VISION • 28.5710° N, 77.2588° E • LANE 1-2</div>
-              <div className="text-[#10B981] font-bold">CLAHE ACTIVE // 60.0 FPS</div>
-            </div>
+          {/* Top-Left Camera Label */}
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-[#0A0B0E]/90 border border-[#262933] px-2 py-0.5 text-[9px] z-10">
+            <span className="w-1.5 h-1.5 bg-[#10B981]" />
+            <span className="text-[#FFFFFF] font-bold">FEED 02:</span>
+            <span className="text-[#CBD5E1]">CAM_DEL_ASHRAM_07</span>
           </div>
-        )}
+
+          {/* Top-Right Maximize / Restore Button */}
+          <button
+            onClick={() => setZoomedCamera(zoomedCamera === 2 ? null : 2)}
+            className={`absolute top-2 right-2 p-1 text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#262933] cursor-pointer z-10 ${
+              zoomedCamera === 2 ? 'bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B]' : 'bg-[#0A0B0E]/80 hover:bg-[#252A34]'
+            }`}
+            title={zoomedCamera === 2 ? 'Restore 2x2 Grid' : 'Maximize Feed 02'}
+          >
+            {zoomedCamera === 2 ? <Minimize2 className="w-3.5 h-3.5 text-[#F59E0B]" /> : <Maximize2 className="w-3 h-3" />}
+          </button>
+
+          {/* Prominent Mock Current Address Strip */}
+          <div className="absolute top-7 left-2 right-12 flex items-center gap-1.5 bg-[#0E1015]/95 border border-[#374151] px-2 py-0.5 text-[8.5px] text-[#FFFFFF] shadow-md z-10">
+            <MapPin className="w-3 h-3 text-[#10B981] shrink-0" />
+            <span className="text-[#10B981] font-bold">CURRENT ADDRESS:</span>
+            <span className="truncate text-[#CBD5E1]">Ring Road & Mathura Road Intersection, Ashram Underpass Portal, South Delhi</span>
+          </div>
+
+          {/* Bottom Telemetry Strip */}
+          <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between text-[8px] text-[#CBD5E1] bg-[#0A0B0E]/85 px-2 py-0.5 border border-[#262933] z-10">
+            <div>SENSOR: 850nm IR NIGHT-VISION • 28.5710° N, 77.2588° E • LANE 1-2</div>
+            <div className="text-[#10B981] font-bold">CLAHE ACTIVE // 60.0 FPS</div>
+          </div>
+        </div>
 
         {/* ================= FEED 03: CONNAUGHT PLACE OUTER CIRCLE ================= */}
-        {(!zoomedCamera || zoomedCamera === 3) && (
-          <div className="relative bg-[#000000] border border-[#262933] overflow-hidden group aspect-video">
-            <video
-              ref={videoRef3}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover"
+        <div className={`relative bg-[#000000] border border-[#262933] overflow-hidden group aspect-video transition-all ${
+          zoomedCamera && zoomedCamera !== 3 ? 'hidden' : ''
+        } ${zoomedCamera === 3 ? 'col-span-full ring-2 ring-[#F59E0B]' : ''}`}>
+          <video
+            ref={videoRef3}
+            src="/videos/feed3.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            onCanPlay={(e) => { if (isPlaying && e.target.paused) e.target.play().catch(() => {}); }}
+            className="w-full h-full object-cover"
+          />
+
+          {/* Dynamic, Physically Synced ANPR Reticles for Feed 3 */}
+          {activeVehiclesFeed3.map((track) => (
+            <AnprTargetReticle
+              key={track.plate}
+              track={track}
+              isSelected={activeTargetPlate === track.plate}
+              onClick={onSelectPlateForTracking}
             />
+          ))}
 
-            {/* Dynamic, Physically Synced ANPR Reticles for Feed 3 */}
-            {activeVehiclesFeed3.map((track) => (
-              <AnprTargetReticle
-                key={track.plate}
-                track={track}
-                isSelected={activeTargetPlate === track.plate}
-                onClick={onSelectPlateForTracking}
-              />
-            ))}
-
-            {/* Top-Left Camera Label */}
-            <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-[#0A0B0E]/90 border border-[#262933] px-2 py-0.5 text-[9px] z-10">
-              <span className="w-1.5 h-1.5 bg-[#10B981]" />
-              <span className="text-[#FFFFFF] font-bold">FEED 03:</span>
-              <span className="text-[#CBD5E1]">CAM_DEL_CP_OUTER_19</span>
-            </div>
-
-            {/* Top-Right Maximize / Restore Button */}
-            <button
-              onClick={() => setZoomedCamera(zoomedCamera === 3 ? null : 3)}
-              className="absolute top-2 right-2 p-1 bg-[#0A0B0E]/80 hover:bg-[#252A34] text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#262933] cursor-pointer z-10"
-              title={zoomedCamera === 3 ? 'Restore 2x2 Grid' : 'Maximize Feed 03'}
-            >
-              {zoomedCamera === 3 ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-            </button>
-
-            {/* Prominent Mock Current Address Strip */}
-            <div className="absolute top-7 left-2 right-12 flex items-center gap-1.5 bg-[#0E1015]/95 border border-[#374151] px-2 py-0.5 text-[8.5px] text-[#FFFFFF] shadow-md z-10">
-              <MapPin className="w-3 h-3 text-[#F59E0B] shrink-0" />
-              <span className="text-[#F59E0B] font-bold">CURRENT ADDRESS:</span>
-              <span className="truncate text-[#CBD5E1]">Connaught Place Outer Circle, Radial 4 / Barakhamba Road Junction, Central Delhi</span>
-            </div>
-
-            {/* Bottom Telemetry Strip */}
-            <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between text-[8px] text-[#CBD5E1] bg-[#0A0B0E]/85 px-2 py-0.5 border border-[#262933] z-10">
-              <div>OPTICAL: RAIN DE-GLARE // ADVERSE DE-NOISE • 28.6315° N, 77.2210° E</div>
-              <div className="text-[#10B981] font-bold">HIGH SPEED // 60.0 FPS</div>
-            </div>
+          {/* Top-Left Camera Label */}
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-[#0A0B0E]/90 border border-[#262933] px-2 py-0.5 text-[9px] z-10">
+            <span className="w-1.5 h-1.5 bg-[#10B981]" />
+            <span className="text-[#FFFFFF] font-bold">FEED 03:</span>
+            <span className="text-[#CBD5E1]">CAM_DEL_CP_OUTER_19</span>
           </div>
-        )}
+
+          {/* Top-Right Maximize / Restore Button */}
+          <button
+            onClick={() => setZoomedCamera(zoomedCamera === 3 ? null : 3)}
+            className={`absolute top-2 right-2 p-1 text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#262933] cursor-pointer z-10 ${
+              zoomedCamera === 3 ? 'bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B]' : 'bg-[#0A0B0E]/80 hover:bg-[#252A34]'
+            }`}
+            title={zoomedCamera === 3 ? 'Restore 2x2 Grid' : 'Maximize Feed 03'}
+          >
+            {zoomedCamera === 3 ? <Minimize2 className="w-3.5 h-3.5 text-[#F59E0B]" /> : <Maximize2 className="w-3 h-3" />}
+          </button>
+
+          {/* Prominent Mock Current Address Strip */}
+          <div className="absolute top-7 left-2 right-12 flex items-center gap-1.5 bg-[#0E1015]/95 border border-[#374151] px-2 py-0.5 text-[8.5px] text-[#FFFFFF] shadow-md z-10">
+            <MapPin className="w-3 h-3 text-[#F59E0B] shrink-0" />
+            <span className="text-[#F59E0B] font-bold">CURRENT ADDRESS:</span>
+            <span className="truncate text-[#CBD5E1]">Connaught Place Outer Circle, Radial 4 / Barakhamba Road Junction, Central Delhi</span>
+          </div>
+
+          {/* Bottom Telemetry Strip */}
+          <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between text-[8px] text-[#CBD5E1] bg-[#0A0B0E]/85 px-2 py-0.5 border border-[#262933] z-10">
+            <div>OPTICAL: RAIN DE-GLARE // ADVERSE DE-NOISE • 28.6315° N, 77.2210° E</div>
+            <div className="text-[#10B981] font-bold">HIGH SPEED // 60.0 FPS</div>
+          </div>
+        </div>
 
         {/* ================= FEED 04: IGI AIRPORT T3 EXPRESS ================= */}
-        {(!zoomedCamera || zoomedCamera === 4) && (
-          <div className="relative bg-[#000000] border border-[#262933] overflow-hidden group aspect-video">
-            <video
-              ref={videoRef4}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover"
+        <div className={`relative bg-[#000000] border border-[#262933] overflow-hidden group aspect-video transition-all ${
+          zoomedCamera && zoomedCamera !== 4 ? 'hidden' : ''
+        } ${zoomedCamera === 4 ? 'col-span-full ring-2 ring-[#F59E0B]' : ''}`}>
+          <video
+            ref={videoRef4}
+            src="/videos/feed4.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            onCanPlay={(e) => { if (isPlaying && e.target.paused) e.target.play().catch(() => {}); }}
+            className="w-full h-full object-cover"
+          />
+
+          {/* Dynamic, Physically Synced ANPR Reticles for Feed 4 */}
+          {activeVehiclesFeed4.map((track) => (
+            <AnprTargetReticle
+              key={`${track.plate}-${track.isClone ? 'clone' : 'norm'}`}
+              track={track}
+              isSelected={activeTargetPlate === track.plate}
+              onClick={onSelectPlateForTracking}
             />
+          ))}
 
-            {/* Dynamic, Physically Synced ANPR Reticles for Feed 4 */}
-            {activeVehiclesFeed4.map((track) => (
-              <AnprTargetReticle
-                key={`${track.plate}-${track.isClone ? 'clone' : 'norm'}`}
-                track={track}
-                isSelected={activeTargetPlate === track.plate}
-                onClick={onSelectPlateForTracking}
-              />
-            ))}
-
-            {/* Top-Left Camera Label */}
-            <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-[#0A0B0E]/90 border border-[#262933] px-2 py-0.5 text-[9px] z-10">
-              <span className="w-1.5 h-1.5 bg-[#10B981]" />
-              <span className="text-[#FFFFFF] font-bold">FEED 04:</span>
-              <span className="text-[#CBD5E1]">CAM_DEL_IGI_T3_29</span>
-            </div>
-
-            {/* Top-Right Maximize / Restore Button */}
-            <button
-              onClick={() => setZoomedCamera(zoomedCamera === 4 ? null : 4)}
-              className="absolute top-2 right-2 p-1 bg-[#0A0B0E]/80 hover:bg-[#252A34] text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#262933] cursor-pointer z-10"
-              title={zoomedCamera === 4 ? 'Restore 2x2 Grid' : 'Maximize Feed 04'}
-            >
-              {zoomedCamera === 4 ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-            </button>
-
-            {/* Prominent Mock Current Address Strip */}
-            <div className="absolute top-7 left-2 right-12 flex items-center gap-1.5 bg-[#0E1015]/95 border border-[#374151] px-2 py-0.5 text-[8.5px] text-[#FFFFFF] shadow-md z-10">
-              <MapPin className="w-3 h-3 text-[#10B981] shrink-0" />
-              <span className="text-[#10B981] font-bold">CURRENT ADDRESS:</span>
-              <span className="truncate text-[#CBD5E1]">Indira Gandhi International Airport, Terminal 3 Elevated Departure Viaduct, New Delhi</span>
-            </div>
-
-            {/* Bottom Telemetry Strip */}
-            <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between text-[8px] text-[#CBD5E1] bg-[#0A0B0E]/85 px-2 py-0.5 border border-[#262933] z-10">
-              <div>MULTI-TARGET LOCK: YOLO-V8 + RESNET • 28.5562° N, 77.0865° E</div>
-              <div className="text-[#10B981] font-bold">48.3 ms LATENCY</div>
-            </div>
+          {/* Top-Left Camera Label */}
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-[#0A0B0E]/90 border border-[#262933] px-2 py-0.5 text-[9px] z-10">
+            <span className="w-1.5 h-1.5 bg-[#10B981]" />
+            <span className="text-[#FFFFFF] font-bold">FEED 04:</span>
+            <span className="text-[#CBD5E1]">CAM_DEL_IGI_T3_29</span>
           </div>
-        )}
+
+          {/* Top-Right Maximize / Restore Button */}
+          <button
+            onClick={() => setZoomedCamera(zoomedCamera === 4 ? null : 4)}
+            className={`absolute top-2 right-2 p-1 text-[#CBD5E1] hover:text-[#FFFFFF] border border-[#262933] cursor-pointer z-10 ${
+              zoomedCamera === 4 ? 'bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B]' : 'bg-[#0A0B0E]/80 hover:bg-[#252A34]'
+            }`}
+            title={zoomedCamera === 4 ? 'Restore 2x2 Grid' : 'Maximize Feed 04'}
+          >
+            {zoomedCamera === 4 ? <Minimize2 className="w-3.5 h-3.5 text-[#F59E0B]" /> : <Maximize2 className="w-3 h-3" />}
+          </button>
+
+          {/* Prominent Mock Current Address Strip */}
+          <div className="absolute top-7 left-2 right-12 flex items-center gap-1.5 bg-[#0E1015]/95 border border-[#374151] px-2 py-0.5 text-[8.5px] text-[#FFFFFF] shadow-md z-10">
+            <MapPin className="w-3 h-3 text-[#10B981] shrink-0" />
+            <span className="text-[#10B981] font-bold">CURRENT ADDRESS:</span>
+            <span className="truncate text-[#CBD5E1]">Indira Gandhi International Airport, Terminal 3 Elevated Departure Viaduct, New Delhi</span>
+          </div>
+
+          {/* Bottom Telemetry Strip */}
+          <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between text-[8px] text-[#CBD5E1] bg-[#0A0B0E]/85 px-2 py-0.5 border border-[#262933] z-10">
+            <div>MULTI-TARGET LOCK: YOLO-V8 + RESNET • 28.5562° N, 77.0865° E</div>
+            <div className="text-[#10B981] font-bold">48.3 ms LATENCY</div>
+          </div>
+        </div>
       </div>
 
       {/* Bottom Footer Diagnostics */}
