@@ -518,6 +518,9 @@ export default function App() {
                   }}
                   isAnomalyActive={isAnomalyActive}
                   onTriggerAnomaly={() => setIsAnomalyActive(!isAnomalyActive)}
+                  isPlaying={isPlaying}
+                  isSlowMo={isSlowMo}
+                  currentTime={currentTime}
                 />
               )}
 
