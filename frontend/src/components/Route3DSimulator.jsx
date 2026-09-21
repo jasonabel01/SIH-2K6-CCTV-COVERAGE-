@@ -992,7 +992,7 @@ export default function Route3DSimulator({
                 DEFCON 1: PHYSICAL VELOCITY BREACH // CLONED REGISTRATION DETECTED
               </div>
               <div className="text-xs mt-0.5">
-                Chassis A (Gunmetal SUV) & Chassis B (Silver Sedan) BOTH displaying plate <strong className="underline">{activePlate}</strong> simultaneously.
+                Chassis A (White Hatchback) & Chassis B (White Ertiga MPV) BOTH displaying plate <strong className="underline">HR 26 DQ 5521</strong> simultaneously.
               </div>
               <div className="text-[11px] opacity-90 mt-0.5">
                 • Spatial Separation: <strong>24.6 km</strong> | Implied Transit Velocity: <strong className="underline">2,108 km/h (PHYSICS VIOLATION)</strong>
@@ -1179,7 +1179,7 @@ export default function Route3DSimulator({
                     <span>SIMULTANEOUS 2-NODE ARTERIAL CAPTURE</span>
                   </div>
                   <div className="text-xs font-bold text-[#FFFFFF]">
-                    TARGET REGISTRATION: <span className="text-[#EF4444] underline font-black">{activePlate}</span> (Haryana / Gurugram Commercial RTO)
+                    TARGET REGISTRATION: <span className="text-[#EF4444] underline font-black">HR 26 DQ 5521</span> (Haryana / Gurugram Commercial RTO)
                   </div>
                 </div>
               </div>
@@ -1247,7 +1247,7 @@ export default function Route3DSimulator({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[#CBD5E1]">VEHICLE CHASSIS:</span>
-                    <span className="text-[#FFFFFF] font-bold">White Sedan • Chassis A (Target)</span>
+                    <span className="text-[#FFFFFF] font-bold">White Hatchback (Hyundai i20) • Chassis A (Target)</span>
                   </div>
                   <div className="flex items-center justify-between pt-1 border-t border-[#262933]/80">
                     <div className="flex items-center gap-1.5">
@@ -1306,7 +1306,7 @@ export default function Route3DSimulator({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[#CBD5E1]">VEHICLE CHASSIS:</span>
-                    <span className="text-[#FFFFFF] font-bold">White Ertiga • Chassis B (Clone)</span>
+                    <span className="text-[#FFFFFF] font-bold">White MPV (Maruti Ertiga) • Chassis B (Clone)</span>
                   </div>
                   <div className="flex items-center justify-between pt-1 border-t border-[#262933]/80">
                     <div className="flex items-center gap-1.5">
