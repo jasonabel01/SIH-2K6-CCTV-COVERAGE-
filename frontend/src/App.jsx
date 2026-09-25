@@ -335,12 +335,22 @@ export default function App() {
             </div>
             <button
               onClick={() => setShowAuditModal(true)}
-              className="px-3 py-1 bg-[#1C1F26] hover:bg-[#252A34] text-[#E2E8F0] hover:text-[#FFFFFF] border border-[#374151] hover:border-[#F59E0B]/70 rounded-none flex items-center gap-1.5 transition-all cursor-pointer font-bold shadow-sm group"
+              className="px-3 py-1 bg-[#1C1F26] hover:bg-[#252A34] text-[#E2E8F0] hover:text-[#FFFFFF] border border-[#374151] hover:border-[#F59E0B]/70 rounded-none flex items-center gap-1.5 transition-all cursor-pointer font-bold shadow-sm group text-xs"
             >
               <span className="w-1.5 h-1.5 bg-[#10B981] rounded-none shadow-[0_0_6px_rgba(16,185,129,0.9)]" />
               <Terminal className="w-3.5 h-3.5 text-[#CBD5E1] group-hover:text-[#FFFFFF]" />
               <span>DPDP AUDIT LOG</span>
             </button>
+            <a
+              href="./Project_NETRA_Comprehensive_Technical_Architecture_Dossier.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1 bg-[#0077B6]/20 hover:bg-[#0077B6]/40 text-[#00F0FF] hover:text-[#FFFFFF] border border-[#0077B6]/60 hover:border-[#00F0FF] rounded-none flex items-center gap-1.5 transition-all cursor-pointer font-bold shadow-sm text-xs"
+              title="Download Master Technical & Architectural Dossier (PDF)"
+            >
+              <FileText className="w-3.5 h-3.5 text-[#00F0FF]" />
+              <span>TECH DOSSIER (PDF)</span>
+            </a>
           </div>
         </div>
       </header>
