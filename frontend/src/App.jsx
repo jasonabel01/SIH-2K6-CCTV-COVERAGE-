@@ -53,7 +53,7 @@ import UrbanTrafficAnalytics from './components/UrbanTrafficAnalytics';
  * 6. Zero decorative noise: colors strictly signify operational state.
  */
 export default function App() {
-  const [centerView, setCenterView] = useState('traffic_analytics'); // 'cctv_matrix' | 'trajectory_history' | 'vision_lab' | 'gantry_3d' | 'gods_eye_radar' | 'route_sim' | 'gis_map' | 'traffic_analytics'
+  const [centerView, setCenterView] = useState('cctv_matrix'); // 'cctv_matrix' | 'trajectory_history' | 'vision_lab' | 'gantry_3d' | 'gods_eye_radar' | 'route_sim' | 'gis_map' | 'traffic_analytics'
   const [trackedPlate, setTrackedPlate] = useState('RJ 14 CA 0639');
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
