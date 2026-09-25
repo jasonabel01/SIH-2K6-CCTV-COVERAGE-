@@ -135,9 +135,10 @@
 
 ## Phase Summary & Deliverables Matrix
 
-| Phase | Core Modules Addressed | Key Technical Deliverable | Outcome You Can See & Test |
-| :--- | :--- | :--- | :--- |
-| **Phase 1** | Module 1 (ANPR / OCR) | OpenCV preprocessing + YOLO + PaddleOCR + Indian Syntax Engine | Working CV pipeline restoring degraded images & reading plates at >90% accuracy |
-| **Phase 2** | Modules 2 & 4 (Trajectory & Alerts) | FastAPI + Spatial Database + Fuzzy Deduplication + Cloned Plate Engine + Simulator | Live backend API reconstructing full vehicle paths & streaming real-time alerts |
-| **Phase 3** | Module 3 (GIS Dashboard) | React + MapLibre/Deck.gl 3D Tactical Map + Camera Frustums + Trajectory Replay | Interactive 60 FPS "God's Eye" web dashboard with animated trails & live alerts |
-| **Phase 4** | All Modules + Governance | Macro Heatmaps + O-D Arcs + Chart.js + AI Vision Lab + DPDP Audit Log + Pitch Script | Complete SIH submission package with offline demo, judge lab, and presentation deck |
+| Phase | Core Modules Addressed | Key Technical Deliverable | Status | Outcome You Can See & Test |
+| :--- | :--- | :--- | :---: | :--- |
+| **Phase 1** | Module 1 (ANPR / OCR) | OpenCV preprocessing + YOLO + PaddleOCR + Indian Syntax Engine | ✅ **Done** | Standalone CV pipeline restoring degraded images & reading plates at >90% accuracy |
+| **Phase 2** | Modules 2 & 4 (Trajectory & Alerts) | FastAPI + Spatial Database + Fuzzy Deduplication + Cloned Plate Engine + Simulator | ✅ **Done** | Live backend API reconstructing full vehicle paths & streaming real-time alerts |
+| **Phase 3** | Module 3 (GIS Dashboard) | React + Tactical GIS Hybrid Map + Camera Fleet + Glowing Trajectory Replay | ✅ **Done** | Interactive 60 FPS "God's Eye" web dashboard with animated trails & live alerts |
+| **Phase 4** | Macro Traffic Analytics | Dynamic Heatmaps + 3D O-D Flow Arcs + Bottleneck Leaderboard + AI Signal Advisor + 24H Rush Simulator | ✅ **Done** | Urban traffic intelligence suite directly fulfilling the second half of SIH Problem Statement 26127 |
+

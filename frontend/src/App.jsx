@@ -37,6 +37,8 @@ import SubsystemHealthMatrix from './components/SubsystemHealthMatrix';
 import TacticalCommandDeck from './components/TacticalCommandDeck';
 import TacticalCameraWall from './components/TacticalCameraWall';
 import TrajectoryTimelineViewer from './components/TrajectoryTimelineViewer';
+import TacticalGisCommandMap from './components/TacticalGisCommandMap';
+import UrbanTrafficAnalytics from './components/UrbanTrafficAnalytics';
 
 /**
  * NeuroTraffic - City-Wide ANPR & Urban Traffic Intelligence
@@ -51,7 +53,7 @@ import TrajectoryTimelineViewer from './components/TrajectoryTimelineViewer';
  * 6. Zero decorative noise: colors strictly signify operational state.
  */
 export default function App() {
-  const [centerView, setCenterView] = useState('cctv_matrix'); // 'cctv_matrix' | 'trajectory_history' | 'vision_lab' | 'gantry_3d' | 'gods_eye_radar' | 'route_sim'
+  const [centerView, setCenterView] = useState('traffic_analytics'); // 'cctv_matrix' | 'trajectory_history' | 'vision_lab' | 'gantry_3d' | 'gods_eye_radar' | 'route_sim' | 'gis_map' | 'traffic_analytics'
   const [trackedPlate, setTrackedPlate] = useState('RJ 14 CA 0639');
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -281,18 +283,26 @@ export default function App() {
       {/* Top UAS Ground-Station Tactical Header */}
       <header className="sticky top-0 z-50 bg-[#13151B] border-b border-[#262933] px-4 lg:px-6 py-2 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
-          {/* Top-Left: System Readiness */}
+          {/* Top-Left: System Readiness & NETRA C4ISR Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-none bg-[#10B981]/15 border border-[#10B981]/60 flex items-center justify-center">
-              <Shield className="w-3.5 h-3.5 text-[#10B981]" />
+            <div className="w-8 h-8 rounded-none bg-[#10B981]/15 border border-[#10B981]/60 flex items-center justify-center shrink-0">
+              <Shield className="w-4 h-4 text-[#10B981]" />
             </div>
             <div>
-              <div className="text-[9px] text-[#CBD5E1] uppercase tracking-widest flex items-center gap-1.5">
+              <div className="text-[8.5px] text-[#CBD5E1] uppercase tracking-widest flex items-center gap-1.5 leading-tight mb-0.5">
                 <span className="w-1.5 h-1.5 bg-[#10B981] animate-pulse" />
                 SYSTEM READINESS: <span className="text-[#10B981] font-bold">99.4% OPTIMAL</span>
               </div>
-              <div className="font-['Orbitron'] font-bold text-sm text-[#FFFFFF] tracking-wider flex items-center gap-1.5">
-                NEUROTRAFFIC <span className="text-[#CBD5E1] text-xs font-normal">// POLICE C4ISR PS 26127</span>
+              <div className="flex flex-wrap sm:flex-nowrap items-baseline gap-1.5 leading-tight">
+                <span className="font-['Orbitron'] font-black text-sm sm:text-base text-[#FFFFFF] tracking-wider">
+                  NETRA
+                </span>
+                <span className="text-[9.5px] sm:text-[10px] font-mono text-[#00F0FF] font-semibold tracking-tight">
+                  (Networked Entity Tracking &amp; Recognition Architecture)
+                </span>
+                <span className="text-[#64748B] text-[10px] font-normal hidden xl:inline">
+                  // POLICE C4ISR PS 26127
+                </span>
               </div>
             </div>
           </div>
@@ -438,7 +448,7 @@ export default function App() {
           {/* CENTER COLUMN: Central Diagnostic Stage (6 Cols) */}
           <div className="lg:col-span-6 flex flex-col gap-3">
             {/* Center Stage Mode Switcher (Sharp Modular Tabs) */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 bg-[#13151B] border border-[#262933] rounded-none p-1 font-mono text-xs gap-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 bg-[#13151B] border border-[#262933] rounded-none p-1 font-mono text-xs gap-1">
               <button
                 onClick={() => setCenterView('cctv_matrix')}
                 className={`py-2 px-1 rounded-none transition-all flex items-center justify-center gap-1 cursor-pointer text-[11px] ${
@@ -505,6 +515,28 @@ export default function App() {
                 <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${centerView === 'route_sim' ? 'bg-[#F59E0B] shadow-[0_0_6px_rgba(245,158,11,0.9)]' : 'bg-[#4B5563]'}`} />
                 6. 3D Corridor
               </button>
+              <button
+                onClick={() => setCenterView('gis_map')}
+                className={`py-2 px-1 rounded-none transition-all flex items-center justify-center gap-1 cursor-pointer text-[11px] ${
+                  centerView === 'gis_map'
+                    ? 'bg-[#252A34] text-[#FFFFFF] font-black border border-[#00F0FF] shadow-[inset_0_0_10px_rgba(0,240,255,0.12),0_0_10px_rgba(0,240,255,0.25)]'
+                    : 'bg-[#1C1F26] text-[#CBD5E1] hover:text-[#FFFFFF] hover:bg-[#252A34] border border-[#374151] hover:border-[#4B5563]'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${centerView === 'gis_map' ? 'bg-[#00F0FF] shadow-[0_0_6px_rgba(0,240,255,0.9)]' : 'bg-[#4B5563]'}`} />
+                7. GIS Map
+              </button>
+              <button
+                onClick={() => setCenterView('traffic_analytics')}
+                className={`py-2 px-1 rounded-none transition-all flex items-center justify-center gap-1 cursor-pointer text-[11px] ${
+                  centerView === 'traffic_analytics'
+                    ? 'bg-[#252A34] text-[#FFFFFF] font-black border border-[#10B981] shadow-[inset_0_0_10px_rgba(16,185,129,0.12),0_0_10px_rgba(16,185,129,0.25)]'
+                    : 'bg-[#1C1F26] text-[#CBD5E1] hover:text-[#FFFFFF] hover:bg-[#252A34] border border-[#374151] hover:border-[#4B5563]'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-none shrink-0 ${centerView === 'traffic_analytics' ? 'bg-[#10B981] shadow-[0_0_6px_rgba(16,185,129,0.9)]' : 'bg-[#4B5563]'}`} />
+                8. Traffic Analytics
+              </button>
             </div>
 
             {/* Active Stage View */}
@@ -566,6 +598,17 @@ export default function App() {
                   isAnomalyActive={isAnomalyActive}
                   onToggleAnomaly={(val) => setIsAnomalyActive(val !== undefined ? val : !isAnomalyActive)}
                 />
+              )}
+
+              {centerView === 'gis_map' && (
+                <TacticalGisCommandMap 
+                  activeTargetPlate={trackedPlate}
+                  onSelectPlate={handleSelectPlateForTracking}
+                />
+              )}
+
+              {centerView === 'traffic_analytics' && (
+                <UrbanTrafficAnalytics onSelectPlate={handleSelectPlateForTracking} />
               )}
             </div>
           </div>

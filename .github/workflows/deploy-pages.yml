@@ -1,4 +1,4 @@
-name: Deploy NeuroTraffic to GitHub Pages
+name: Deploy NETRA to GitHub Pages
 
 on:
   push:

@@ -161,3 +161,24 @@ html, body {
 .leaflet-control-attribution a {
   color: var(--c2-primary) !important;
 }
+
+/* Tactical Dark Tooltip Overrides */
+.leaflet-tooltip.tactical-od-tooltip,
+.leaflet-tooltip.tactical-zone-tooltip,
+.leaflet-tooltip.tactical-bn-tooltip,
+.leaflet-tooltip.tactical-traffic-tooltip,
+.leaflet-tooltip.tactical-tooltip {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: #F8FAFC !important;
+}
+
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+  display: none !important;
+}
+
