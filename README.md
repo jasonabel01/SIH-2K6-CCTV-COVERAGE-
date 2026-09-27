@@ -32,7 +32,6 @@
 10. [Legal Compliance & DPDP Act 2023 Cryptographic Vault](#10-legal-compliance--dpdp-act-2023-cryptographic-vault)
 11. [REST API & WebSocket Specifications](#11-rest-api--websocket-specifications)
 12. [Local Setup & Quickstart Guide](#12-local-setup--quickstart-guide)
-13. [SIH Judge Defense Q&A Master Matrix](#13-sih-judge-defense-qa-master-matrix)
 
 ---
 
@@ -332,26 +331,6 @@ docker build -t netra-backend .
 docker run -p 8080:8080 netra-backend
 ```
 
----
-
-## 13. SIH Judge Defense Q&A Master Matrix
-
-### Q1: "How are you connecting multiple video cameras together?"
-> *"Every camera is assigned a static GPS coordinate, corridor ID, and unified timestamp vector. When vehicles pass, sightings are normalized into a spatial-temporal graph. We use the Haversine formula to compute exact inter-camera physical distances and calculate transit velocities ($v = \Delta d / \Delta t$). RapidFuzz Levenshtein matching merges OCR variations, and Leaflet interpolates the route onto real road geometry."*
-
-### Q2: "What if two different cars have the exact same license plate?"
-> *"That is our core DEFCON 1 Cloned Registration detector. If the same plate appears at two cameras faster than physically possible ($v > 200\text{ km/h}$), the system flags a physics breach. In our demo, DND and IGI Airport are 24.6 km apart; sightings within 42 seconds indicate an impossible 2,108 km/h velocity, locking dual-camera optical crops proving they are two distinct vehicles (a white hatchback and a white MPV)."*
-
-### Q3: "Why use CLAHE instead of standard histogram equalization?"
-> *"Standard histogram equalization operates globally across all channels, causing intense headlight bloom to saturate into a white blob that destroys character contrast. We use CLAHE in CIE LAB color space on the L\* channel with an 8x8 grid and 3.0 clip limit, preserving dark character boundaries while raising shadowed plate details without blooming."*
-
-### Q4: "What if the edge camera has no GPU or the internet cuts out?"
-> *"NETRA incorporates an autonomous zero-GPU Morphological Topography fallback. It uses an OpenCV Black-Hat transform and Sobel-X horizontal energy derivative (13x5 kernel) to extract character strokes in 7.8 milliseconds on an ordinary dual-core CPU with zero network dependencies."*
-
-### Q5: "How does this comply with Indian data privacy laws?"
-> *"Under DPDP Act 2023, NETRA operates on a zero-persistence model where video uploads are processed in RAM and unlinked. Sighting data for non-flagged vehicles is automatically purged after 72 hours via an automated TTL governor. All officer queries require badge authorization and are immutably signed with SHA-256 hashes."*
-
----
 
 ## 👥 Project Information & Authors
 
